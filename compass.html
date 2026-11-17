@@ -419,6 +419,13 @@
       <button id="debugToggleBtn" class="btn secondary" style="margin-left:auto;">Debug ▼</button>
     </div>
     <div id="debugPanel" hidden>
+      <div style="margin-bottom: 0.75rem; padding-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1;">
+        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.7rem; color: #475569;">
+          <span style="min-width: 70px;">Glättung:</span>
+          <input type="range" id="smoothingSlider" min="0.02" max="0.5" step="0.01" value="0.15" style="flex: 1;">
+          <span id="smoothingValue" style="min-width: 35px; font-family: monospace;">0.15</span>
+        </label>
+      </div>
       <div id="debugContent"></div>
     </div>
   </main>
@@ -472,6 +479,11 @@
     let debugExpanded = false;
     let watchId = null;
     
+    // Smoothing for compass needle
+    let smoothedHeading = 0;
+    let smoothingFactor = 0.15; // 0.05 = very smooth, 0.3 = responsive
+    let lastHeading = null;
+    
     // Calibration state
     let calibrationState = 'uncalibrated'; // 'uncalibrated', 'calibrating', 'calibrated'
     let headingHistory = [];
@@ -503,13 +515,36 @@
       debugToggleBtn.textContent = debugExpanded ? 'Debug ▲' : 'Debug ▼';
     });
 
+    // Smoothing slider
+    const smoothingSlider = document.getElementById('smoothingSlider');
+    const smoothingValue = document.getElementById('smoothingValue');
+    if (smoothingSlider && smoothingValue) {
+      smoothingSlider.addEventListener('input', (e) => {
+        smoothingFactor = parseFloat(e.target.value);
+        smoothingValue.textContent = smoothingFactor.toFixed(2);
+      });
+    }
+
     function updateCompass(heading) {
       currentHeading = heading;
       const h = ((heading % 360) + 360) % 360;
-      compass.style.transform = `rotate(${-h}deg)`;
-      degreesEl.textContent = `${Math.round(h)}°`;
       
-      // Track heading for calibration detection
+      // Smooth the heading (exponential moving average with wrap-around handling)
+      if (lastHeading === null) {
+        smoothedHeading = h;
+      } else {
+        // Calculate shortest angular difference
+        let diff = h - smoothedHeading;
+        diff = ((diff + 180) % 360) - 180; // Normalize to [-180, 180]
+        smoothedHeading += diff * smoothingFactor;
+        smoothedHeading = ((smoothedHeading % 360) + 360) % 360;
+      }
+      lastHeading = h;
+      
+      compass.style.transform = `rotate(${-smoothedHeading}deg)`;
+      degreesEl.textContent = `${Math.round(smoothedHeading)}°`;
+      
+      // Track heading for calibration detection (use raw heading for variance calc)
       trackCalibration(heading);
     }
 
