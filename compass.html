@@ -365,14 +365,22 @@
     logDebug('AUTO-INIT CHECK', { 
       hasDeviceOrientationEvent: !!window.DeviceOrientationEvent, 
       requestPermissionType: typeof DeviceOrientationEvent?.requestPermission,
-      condition: window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission !== 'function'
+      isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent),
+      isAndroid: /Android/.test(navigator.userAgent)
     });
-    if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission !== 'function') {
+    
+    // iOS Safari needs explicit permission via requestPermission()
+    // Android Chrome uses site settings, not JS permission API
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const needsPermission = isIOS && typeof DeviceOrientationEvent?.requestPermission === 'function';
+    
+    if (window.DeviceOrientationEvent && !needsPermission) {
       requestPermissionBtn.hidden = true;
-      logDebug('AUTO-INIT', { message: 'Calling initSensors()' });
+      logDebug('AUTO-INIT', { message: 'Calling initSensors() (Android/non-iOS)' });
       initSensors();
-    } else if (typeof DeviceOrientationEvent?.requestPermission === 'function') {
+    } else if (needsPermission) {
       requestPermissionBtn.hidden = false;
+      logDebug('AUTO-INIT', { message: 'iOS detected, waiting for permission button click' });
     } else {
       requestPermissionBtn.hidden = true;
       alert('DeviceOrientation API nicht unterstützt. Simulation verfügbar.');
