@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="description" content="PE1 - Progressive Web App">
+  <title>PE1</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+  <link rel="stylesheet" href="styles.css">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="PE1">
+</head>
+<body>
+  <header>
+    <h1>PE1</h1>
+    <nav>
+      <a href="index.html" class="active">Start</a>
+      <a href="about.html">Über</a>
+      <a href="contact.html">Kontakt</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h2>Willkommen bei PE1</h2>
+      <p>Deine Progressive Web App — installierbar, offline-fähig, schnell.</p>
+      <button id="installBtn" class="btn primary" hidden>App installieren</button>
+    </section>
+
+    <section class="features">
+      <article>
+        <h3>📱 Installierbar</h3>
+        <p>Füge PE1 zum Startbildschirm hinzu — wie eine native App.</p>
+      </article>
+      <article>
+        <h3>🔌 Offline</h3>
+        <p>Service Worker cached alles für Offline-Nutzung.</p>
+      </article>
+      <article>
+        <h3>⚡ Schnell</h3>
+        <p>Optimiert für Performance und sofortige Ladezeiten.</p>
+      </article>
+    </section>
+  </main>
+
+  <footer>
+    <p>&copy; 2025 PE1. <a href="https://github.com/BavarianOne/PE1">GitHub</a></p>
+  </footer>
+
+  <script src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js')
+        .then(reg => console.log('SW registered:', reg.scope))
+        .catch(err => console.log('SW registration failed:', err));
+    }
+  </script>
+</body>
+</html>
