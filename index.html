@@ -58,18 +58,64 @@
     </section>
 
     <section class="features" style="grid-template-columns: 1fr; gap: 0.5rem;">
-      <article style="padding: 0.75rem;">
-        <h3 style="font-size: 0.9rem; margin-bottom: 0.3rem;">📱 Installierbar</h3>
-        <p style="font-size: 0.75rem; color: var(--text-muted);">Füge PE1 zum Startbildschirm hinzu — wie eine native App.</p>
-      </article>
-      <article style="padding: 0.75rem;">
-        <h3 style="font-size: 0.9rem; margin-bottom: 0.3rem;">🔌 Offline</h3>
-        <p style="font-size: 0.75rem; color: var(--text-muted);">Service Worker cached alles für Offline-Nutzung.</p>
-      </article>
-      <article style="padding: 0.75rem;">
-        <h3 style="font-size: 0.9rem; margin-bottom: 0.3rem;">⚡ Schnell</h3>
-        <p style="font-size: 0.75rem; color: var(--text-muted);">Optimiert für Performance und sofortige Ladezeiten.</p>
-      </article>
+      <!-- Page cards - easily extensible by adding more <a class="page-card"> elements -->
+      <a href="compass.html" class="page-card" style="display:block; text-decoration:none; color:inherit; padding:0.75rem; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); transition:transform 0.15s, box-shadow 0.15s;">
+        <div style="display:flex; align-items:center; gap:0.75rem;">
+          <div style="width:40px; height:40px; border-radius:10px; background:linear-gradient(135deg,#2563eb,#3b82f6); display:flex; align-items:center; justify-content:center; color:white; flex-shrink:0;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:22px;height:22px;">
+              <circle cx="12" cy="12" r="10"/>
+              <polygon points="12 2 15 8 12 8"/>
+              <polygon points="12 22 15 16 12 16"/>
+              <polygon points="2 12 8 15 8 12"/>
+              <polygon points="22 12 16 15 16 12"/>
+            </svg>
+          </div>
+          <div style="flex:1; min-width:0;">
+            <h3 style="font-size:0.9rem; font-weight:600; color:var(--text); margin-bottom:0.15rem;">Kompass</h3>
+            <p style="font-size:0.75rem; color:var(--text-muted); margin:0;">Digitaler Kompass mit GPS & Kalibrierung</p>
+          </div>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px; color:var(--text-muted); flex-shrink:0;">
+            <path d="M9 18l6-6-6-6"/>
+          </svg>
+        </div>
+      </a>
+
+      <a href="about.html" class="page-card" style="display:block; text-decoration:none; color:inherit; padding:0.75rem; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); transition:transform 0.15s, box-shadow 0.15s;">
+        <div style="display:flex; align-items:center; gap:0.75rem;">
+          <div style="width:40px; height:40px; border-radius:10px; background:linear-gradient(135deg,#10b981,#34d399); display:flex; align-items:center; justify-content:center; color:white; flex-shrink:0;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:22px;height:22px;">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 16v-4"/>
+              <path d="M12 8h.01"/>
+            </svg>
+          </div>
+          <div style="flex:1; min-width:0;">
+            <h3 style="font-size:0.9rem; font-weight:600; color:var(--text); margin-bottom:0.15rem;">Über</h3>
+            <p style="font-size:0.75rem; color:var(--text-muted); margin:0;">Infos zur App, Technologien, Browser-Support</p>
+          </div>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px; color:var(--text-muted); flex-shrink:0;">
+            <path d="M9 18l6-6-6-6"/>
+          </svg>
+        </div>
+      </a>
+
+      <a href="contact.html" class="page-card" style="display:block; text-decoration:none; color:inherit; padding:0.75rem; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); transition:transform 0.15s, box-shadow 0.15s;">
+        <div style="display:flex; align-items:center; gap:0.75rem;">
+          <div style="width:40px; height:40px; border-radius:10px; background:linear-gradient(135deg,#f59e0b,#fbbf24); display:flex; align-items:center; justify-content:center; color:white; flex-shrink:0;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:22px;height:22px;">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>
+          </div>
+          <div style="flex:1; min-width:0;">
+            <h3 style="font-size:0.9rem; font-weight:600; color:var(--text); margin-bottom:0.15rem;">Kontakt</h3>
+            <p style="font-size:0.75rem; color:var(--text-muted); margin:0;">GitHub, Entwicklung, Lizenz</p>
+          </div>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px; color:var(--text-muted); flex-shrink:0;">
+            <path d="M9 18l6-6-6-6"/>
+          </svg>
+        </div>
+      </a>
     </section>
   </main>
 
