@@ -153,6 +153,7 @@
     </section>
 
     <div class="compass-controls">
+      <div id="status" style="text-align:center; margin-bottom:0.5rem; font-size:0.9rem; min-height:1.2em;"></div>
       <button id="requestPermissionBtn" class="btn primary">Berechtigung anfordern (iOS)</button>
       <button id="simulateBtn" class="btn secondary">Simulation starten</button>
       <button id="stopSimulationBtn" class="btn secondary" hidden>Simulation stoppen</button>
@@ -170,10 +171,11 @@
     const requestPermissionBtn = document.getElementById('requestPermissionBtn');
     const simulateBtn = document.getElementById('simulateBtn');
     const stopSimulationBtn = document.getElementById('stopSimulationBtn');
+    const statusEl = document.getElementById('status');
 
     let simulateInterval = null;
     let currentHeading = 0;
-    let hasPermission = false;
+    let usingAbsolute = false;
 
     function updateCompass(heading) {
       currentHeading = heading;
@@ -181,26 +183,83 @@
       degreesEl.textContent = `${Math.round(heading)}°`;
     }
 
-    function handleOrientation(event) {
-      let heading;
-      if (event.webkitCompassHeading !== undefined) {
-        heading = event.webkitCompassHeading;
-      } else if (event.alpha !== null) {
-        heading = 360 - event.alpha;
-      } else {
-        return;
+    function setStatus(msg, isError = false) {
+      if (statusEl) {
+        statusEl.textContent = msg;
+        statusEl.style.color = isError ? '#dc2626' : '#2563eb';
       }
-      updateCompass(heading);
     }
 
+    // 1. Try Generic Sensor API (modern, most reliable)
+    async function tryGenericSensor() {
+      if (!window.AbsoluteOrientationSensor) return false;
+      try {
+        const sensor = new AbsoluteOrientationSensor({ frequency: 20, referenceFrame: 'device' });
+        sensor.onreading = () => {
+          // quaternion to heading (yaw)
+          const [x, y, z, w] = [sensor.quaternion[0], sensor.quaternion[1], sensor.quaternion[2], sensor.quaternion[3]];
+          const heading = Math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z)) * 180 / Math.PI;
+          updateCompass((heading + 360) % 360);
+        };
+        sensor.onerror = (e) => {
+          console.log('AbsoluteOrientationSensor error:', e.error?.name);
+          tryDeviceOrientationAbsolute();
+        };
+        sensor.start();
+        setStatus('🧭 AbsoluteOrientationSensor aktiv');
+        usingAbsolute = true;
+        return true;
+      } catch (e) {
+        console.log('AbsoluteOrientationSensor not available:', e.name);
+        return false;
+      }
+    }
+
+    // 2. Try deviceorientationabsolute (Chrome 50+ Android)
+    function tryDeviceOrientationAbsolute() {
+      if (!window.DeviceOrientationEvent) return false;
+      window.addEventListener('deviceorientationabsolute', handleAbsoluteOrientation);
+      // Test if it actually fires absolute values
+      setTimeout(() => {
+        if (!usingAbsolute) {
+          window.removeEventListener('deviceorientationabsolute', handleAbsoluteOrientation);
+          tryDeviceOrientationRelative();
+        }
+      }, 2000);
+      return true;
+    }
+
+    function handleAbsoluteOrientation(event) {
+      if (event.absolute === true && event.alpha !== null) {
+        usingAbsolute = true;
+        const heading = 360 - event.alpha; // alpha: 0 = North, clockwise
+        updateCompass(heading);
+        setStatus('🧭 deviceorientationabsolute aktiv (echter Norden)');
+      }
+    }
+
+    // 3. Fallback: deviceorientation (relative, nicht echter Norden)
+    function tryDeviceOrientationRelative() {
+      window.addEventListener('deviceorientation', handleRelativeOrientation);
+      setStatus('⚠️ deviceorientation aktiv (relativ, kein echter Norden)', true);
+    }
+
+    function handleRelativeOrientation(event) {
+      if (usingAbsolute) return;
+      if (event.alpha !== null) {
+        const heading = 360 - event.alpha;
+        updateCompass(heading);
+      }
+    }
+
+    // iOS permission
     async function requestPermission() {
       if (typeof DeviceOrientationEvent.requestPermission === 'function') {
         try {
           const permission = await DeviceOrientationEvent.requestPermission();
           if (permission === 'granted') {
-            hasPermission = true;
-            window.addEventListener('deviceorientation', handleOrientation);
             requestPermissionBtn.hidden = true;
+            initSensors();
             alert('Berechtigung erteilt! Der Kompass funktioniert jetzt.');
           } else {
             alert('Berechtigung verweigert. Simulation verfügbar.');
@@ -210,9 +269,16 @@
           alert('Fehler bei der Berechtigungsanfrage.');
         }
       } else {
-        hasPermission = true;
-        window.addEventListener('deviceorientation', handleOrientation);
         requestPermissionBtn.hidden = true;
+        initSensors();
+      }
+    }
+
+    async function initSensors() {
+      const ok = await tryGenericSensor();
+      if (!ok) {
+        // deviceorientationabsolute doesn't need permission on Android
+        tryDeviceOrientationAbsolute();
       }
     }
 
@@ -225,6 +291,7 @@
         angle = (angle + 2) % 360;
         updateCompass(angle);
       }, 50);
+      setStatus('🔄 Simulation läuft', true);
     }
 
     function stopSimulation() {
@@ -234,20 +301,19 @@
       }
       simulateBtn.hidden = false;
       stopSimulationBtn.hidden = true;
+      setStatus('Simulation gestoppt');
     }
 
     requestPermissionBtn.addEventListener('click', requestPermission);
     simulateBtn.addEventListener('click', startSimulation);
     stopSimulationBtn.addEventListener('click', stopSimulation);
 
-    if (window.DeviceOrientationEvent) {
-      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-        requestPermissionBtn.hidden = false;
-      } else {
-        hasPermission = true;
-        window.addEventListener('deviceorientation', handleOrientation);
-        requestPermissionBtn.hidden = true;
-      }
+    // Auto-init on Android (no permission needed)
+    if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission !== 'function') {
+      requestPermissionBtn.hidden = true;
+      initSensors();
+    } else if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+      requestPermissionBtn.hidden = false;
     } else {
       requestPermissionBtn.hidden = true;
       alert('DeviceOrientation API nicht unterstützt. Simulation verfügbar.');
