@@ -362,10 +362,16 @@
     logDebug('STARTUP', { message: 'Script loaded', timestamp: Date.now() });
 
     // Auto-init on Android (no permission needed)
+    logDebug('AUTO-INIT CHECK', { 
+      hasDeviceOrientationEvent: !!window.DeviceOrientationEvent, 
+      requestPermissionType: typeof DeviceOrientationEvent?.requestPermission,
+      condition: window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission !== 'function'
+    });
     if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission !== 'function') {
       requestPermissionBtn.hidden = true;
+      logDebug('AUTO-INIT', { message: 'Calling initSensors()' });
       initSensors();
-    } else if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+    } else if (typeof DeviceOrientationEvent?.requestPermission === 'function') {
       requestPermissionBtn.hidden = false;
     } else {
       requestPermissionBtn.hidden = true;
