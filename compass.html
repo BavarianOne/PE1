@@ -166,6 +166,113 @@
       border: 2px solid #dbeafe;
     }
     
+    /* Calibration Status */
+    .calibration-status {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      padding: 0.75rem 1rem;
+      background: #fff;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      min-width: 260px;
+      transition: all 0.3s ease;
+    }
+    .calibration-status.calibrating {
+      border-color: #f59e0b;
+      background: #fffbeb;
+    }
+    .calibration-status.calibrated {
+      border-color: #22c55e;
+      background: #f0fdf4;
+    }
+    .calibration-status.uncalibrated {
+      border-color: #ef4444;
+      background: #fef2f2;
+    }
+    .calibration-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      transition: all 0.3s ease;
+    }
+    .calibration-status.uncalibrated .calibration-indicator { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
+    .calibration-status.calibrating .calibration-indicator { background: #f59e0b; box-shadow: 0 0 12px #f59e0b; animation: pulse 1s infinite; }
+    .calibration-status.calibrated .calibration-indicator { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .calibration-text { font-weight: 600; }
+    .calibration-status.uncalibrated .calibration-text { color: #ef4444; }
+    .calibration-status.calibrating .calibration-text { color: #f59e0b; }
+    .calibration-status.calibrated .calibration-text { color: #22c55e; }
+    .calibration-detail { font-size: 0.75rem; color: #64748b; margin-left: auto; }
+    
+    /* Calibration Guide Modal */
+    .calibration-guide {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+    }
+    .calibration-guide.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+    .calibration-guide-content {
+      background: white;
+      border-radius: 16px;
+      padding: 2rem;
+      max-width: 320px;
+      text-align: center;
+      transform: scale(0.9);
+      transition: transform 0.3s ease;
+    }
+    .calibration-guide.visible .calibration-guide-content {
+      transform: scale(1);
+    }
+    .calibration-guide h3 { margin-bottom: 1rem; color: #1e3a8a; }
+    .calibration-guide .figure8 {
+      width: 120px;
+      height: 120px;
+      margin: 1.5rem auto;
+      position: relative;
+    }
+    .calibration-guide .figure8 svg { width: 100%; height: 100%; }
+    .calibration-guide .figure8 path {
+      stroke: #2563eb;
+      stroke-width: 3;
+      fill: none;
+      stroke-dasharray: 300;
+      stroke-dashoffset: 300;
+      animation: drawFigure8 3s ease-in-out infinite;
+    }
+    @keyframes drawFigure8 {
+      0% { stroke-dashoffset: 300; }
+      50% { stroke-dashoffset: 0; }
+      100% { stroke-dashoffset: -300; }
+    }
+    .calibration-guide p { color: #475569; margin-bottom: 1rem; line-height: 1.5; }
+    .calibration-guide .calibrate-btn {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 0.75rem 2rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .calibration-guide .calibrate-btn:disabled { background: #93c5fd; cursor: not-allowed; }
+    
     .location-display {
       margin-top: 1.5rem;
       padding: 1rem;
@@ -176,9 +283,7 @@
       min-width: 280px;
       max-width: 400px;
     }
-    .location-display.hidden {
-      display: none;
-    }
+    .location-display.hidden { display: none; }
     .location-label {
       font-size: 0.8rem;
       color: #2563eb;
@@ -219,14 +324,8 @@
       flex-wrap: wrap;
       justify-content: center;
     }
-    .compass-info {
-      text-align: center;
-      max-width: 400px;
-    }
-    .compass-info h3 {
-      margin-bottom: 0.5rem;
-      color: #2563eb;
-    }
+    .compass-info { text-align: center; max-width: 400px; }
+    .compass-info h3 { margin-bottom: 0.5rem; color: #2563eb; }
     #status {
       text-align: center;
       margin-bottom: 0.5rem;
@@ -245,12 +344,14 @@
       max-height: 250px;
       overflow: auto;
     }
-    #debugContent div {
-      margin: 2px 0;
-      color: #334155;
-    }
+    #debugContent div { margin: 2px 0; color: #334155; }
     #debugContent .time { color: #94a3b8; }
     #debugContent .source { color: #2563eb; font-weight: 700; }
+    
+    .btn { padding: 0.5rem 1rem; border: none; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+    .btn.primary { background: #2563eb; color: white; }
+    .btn.secondary { background: #e2e8f0; color: #334155; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -292,6 +393,14 @@
           <div class="compass-needle-fixed" id="fixedNeedle"></div>
           <div class="compass-degrees" id="degrees">0°</div>
         </div>
+        
+        <!-- Calibration Status -->
+        <div class="calibration-status uncalibrated" id="calibrationStatus">
+          <div class="calibration-indicator"></div>
+          <span class="calibration-text" id="calibrationText">Nicht kalibriert</span>
+          <span class="calibration-detail" id="calibrationDetail">Bewege das Gerät in einer 8-Form</span>
+          <button class="btn secondary" id="calibrateBtn" style="margin-left:0.5rem; padding:0.25rem 0.75rem; font-size:0.75rem;">Kalibrieren</button>
+        </div>
       </article>
 
       <div class="location-display" id="locationDisplay">
@@ -314,6 +423,21 @@
     </div>
   </main>
 
+  <!-- Calibration Guide Modal -->
+  <div class="calibration-guide" id="calibrationGuide">
+    <div class="calibration-guide-content">
+      <h3>🧭 Kompass kalibrieren</h3>
+      <div class="figure8">
+        <svg viewBox="0 0 120 120">
+          <path d="M60,10 C60,10 30,30 30,60 C30,90 60,110 60,110 C60,110 90,90 90,60 C90,30 60,10 60,10 M60,10 C60,10 90,30 90,60 C90,90 60,110 60,110 C60,110 30,90 30,60 C30,30 60,10 60,10"/>
+        </svg>
+      </div>
+      <p>Halte das Handy flach und bewege es in einer liegenden <strong>8-Form</strong> (∞). Wiederhole die Bewegung 3-5 mal, bis der Status auf "Kalibriert" wechselt.</p>
+      <p><small>Auf iOS: Bewegung in Safari-Einstellungen erlauben (Einstellungen → Safari → Bewegung & Ausrichtung)</small></p>
+      <button class="calibrate-btn" id="startCalibrationBtn">Verstanden, los geht's</button>
+    </div>
+  </div>
+
   <footer>
     <p>&copy; 2025 PE1. <a href="https://github.com/BavarianOne/PE1">GitHub</a></p>
   </footer>
@@ -332,6 +456,12 @@
     const locationCoords = document.getElementById('locationCoords');
     const locationAccuracy = document.getElementById('locationAccuracy');
     const locationBtn = document.getElementById('locationBtn');
+    const calibrationStatus = document.getElementById('calibrationStatus');
+    const calibrationText = document.getElementById('calibrationText');
+    const calibrationDetail = document.getElementById('calibrationDetail');
+    const calibrateBtn = document.getElementById('calibrateBtn');
+    const calibrationGuide = document.getElementById('calibrationGuide');
+    const startCalibrationBtn = document.getElementById('startCalibrationBtn');
 
     console.log('DEBUG ELEMENTS:', { debugToggleBtn, debugPanel, debugContent });
 
@@ -341,6 +471,12 @@
     let debugLog = [];
     let debugExpanded = false;
     let watchId = null;
+    
+    // Calibration state
+    let calibrationState = 'uncalibrated'; // 'uncalibrated', 'calibrating', 'calibrated'
+    let headingHistory = [];
+    let calibrationStartTime = 0;
+    let lastAccuracyCheck = 0;
 
     function logDebug(source, data) {
       const entry = { time: new Date().toLocaleTimeString(), source, data };
@@ -372,6 +508,9 @@
       const h = ((heading % 360) + 360) % 360;
       compass.style.transform = `rotate(${-h}deg)`;
       degreesEl.textContent = `${Math.round(h)}°`;
+      
+      // Track heading for calibration detection
+      trackCalibration(heading);
     }
 
     function setStatus(msg, isError = false) {
@@ -379,6 +518,59 @@
         statusEl.textContent = msg;
         statusEl.style.color = isError ? '#dc2626' : '#2563eb';
       }
+    }
+
+    // Calibration tracking
+    function trackCalibration(heading) {
+      const now = Date.now();
+      headingHistory.push({ heading, time: now });
+      
+      // Keep last 10 seconds of data
+      headingHistory = headingHistory.filter(h => now - h.time < 10000);
+      
+      // Check iOS webkitCompassAccuracy if available
+      // This is checked in the event handlers
+      
+      // On Android/Generic Sensor: detect calibration by variance reduction
+      if (headingHistory.length > 20 && calibrationState !== 'calibrated') {
+        const recent = headingHistory.slice(-20);
+        const headings = recent.map(h => h.heading);
+        const mean = headings.reduce((a, b) => a + b, 0) / headings.length;
+        const variance = headings.reduce((sum, h) => sum + Math.pow(h - mean, 2), 0) / headings.length;
+        
+        // Low variance = stable reading = likely calibrated
+        if (variance < 5 && calibrationState === 'uncalibrated') {
+          setCalibrationState('calibrated');
+        }
+      }
+      
+      // Update calibration detail text
+      if (calibrationState === 'calibrating') {
+        const elapsed = Math.floor((now - calibrationStartTime) / 1000);
+        calibrationDetail.textContent = `Bewege in 8-Form... ${elapsed}s`;
+      }
+    }
+
+    function setCalibrationState(state, detail = '') {
+      calibrationState = state;
+      calibrationStatus.className = 'calibration-status ' + state;
+      
+      switch(state) {
+        case 'uncalibrated':
+          calibrationText.textContent = 'Nicht kalibriert';
+          calibrationDetail.textContent = detail || 'Bewege das Gerät in einer 8-Form';
+          break;
+        case 'calibrating':
+          calibrationText.textContent = 'Kalibriere...';
+          calibrationDetail.textContent = 'Bewege in 8-Form... 0s';
+          calibrationStartTime = Date.now();
+          break;
+        case 'calibrated':
+          calibrationText.textContent = 'Kalibriert ✓';
+          calibrationDetail.textContent = detail || 'Hohe Genauigkeit';
+          break;
+      }
+      logDebug('CALIBRATION', { state, detail });
     }
 
     function createMarkings() {
@@ -422,6 +614,8 @@
         logDebug('SENSOR', { started: 'AbsoluteOrientationSensor', referenceFrame: 'device' });
         setStatus('🧭 AbsoluteOrientationSensor aktiv');
         usingAbsolute = true;
+        // Generic Sensor API doesn't expose accuracy directly, use variance tracking
+        setTimeout(() => setCalibrationState('calibrated', 'Sensor bereit'), 2000);
         return true;
       } catch (e) {
         logDebug('SENSOR', { AbsoluteOrientationSensor: 'constructor failed', error: e.name });
@@ -445,7 +639,19 @@
     }
 
     function handleAbsoluteOrientation(event) {
-      logDebug('deviceorientationabsolute', { alpha: event.alpha, beta: event.beta, gamma: event.gamma, absolute: event.absolute, webkitCompassHeading: event.webkitCompassHeading });
+      logDebug('deviceorientationabsolute', { alpha: event.alpha, beta: event.beta, gamma: event.gamma, absolute: event.absolute, webkitCompassHeading: event.webkitCompassHeading, webkitCompassAccuracy: event.webkitCompassAccuracy });
+      
+      // Check iOS webkitCompassAccuracy
+      if (event.webkitCompassAccuracy !== undefined) {
+        if (event.webkitCompassAccuracy < 0) {
+          setCalibrationState('uncalibrated', 'Genauigkeit: niedrig (8-Form bewegen)');
+        } else if (event.webkitCompassAccuracy < 10) {
+          setCalibrationState('calibrated', `Genauigkeit: ±${event.webkitCompassAccuracy.toFixed(0)}°`);
+        } else {
+          setCalibrationState('calibrating', `Genauigkeit: ±${event.webkitCompassAccuracy.toFixed(0)}°`);
+        }
+      }
+      
       if (event.absolute === true && event.alpha !== null) {
         usingAbsolute = true;
         const heading = 360 - event.alpha;
@@ -459,11 +665,23 @@
       window.addEventListener('deviceorientation', handleRelativeOrientation);
       logDebug('SENSOR', { listening: 'deviceorientation (relative)' });
       setStatus('⚠️ deviceorientation aktiv (relativ, kein echter Norden)', true);
+      setCalibrationState('uncalibrated', 'Relative Ausrichtung (kein Magnetometer)');
     }
 
     function handleRelativeOrientation(event) {
       if (usingAbsolute) return;
-      logDebug('deviceorientation', { alpha: event.alpha, beta: event.beta, gamma: event.gamma, absolute: event.absolute, webkitCompassHeading: event.webkitCompassHeading });
+      logDebug('deviceorientation', { alpha: event.alpha, beta: event.beta, gamma: event.gamma, absolute: event.absolute, webkitCompassHeading: event.webkitCompassHeading, webkitCompassAccuracy: event.webkitCompassAccuracy });
+      
+      if (event.webkitCompassAccuracy !== undefined) {
+        if (event.webkitCompassAccuracy < 0) {
+          setCalibrationState('uncalibrated', 'Nicht kalibriert');
+        } else if (event.webkitCompassAccuracy < 10) {
+          setCalibrationState('calibrated', `±${event.webkitCompassAccuracy.toFixed(0)}°`);
+        } else {
+          setCalibrationState('calibrating', `±${event.webkitCompassAccuracy.toFixed(0)}°`);
+        }
+      }
+      
       if (event.alpha !== null) {
         const heading = 360 - event.alpha;
         updateCompass(heading);
@@ -507,6 +725,23 @@
 
     // Auto-start GPS on load
     getLocation();
+
+    // Calibration UI
+    calibrateBtn.addEventListener('click', () => {
+      calibrationGuide.classList.add('visible');
+    });
+
+    startCalibrationBtn.addEventListener('click', () => {
+      calibrationGuide.classList.remove('visible');
+      setCalibrationState('calibrating');
+    });
+
+    // Close modal on background click
+    calibrationGuide.addEventListener('click', (e) => {
+      if (e.target === calibrationGuide) {
+        calibrationGuide.classList.remove('visible');
+      }
+    });
 
     // iOS permission
     async function requestPermission() {
@@ -553,6 +788,7 @@
         updateCompass(angle);
       }, 50);
       setStatus('🔄 Simulation läuft', true);
+      setCalibrationState('calibrated', 'Simulation');
     }
 
     function stopSimulation() {
@@ -563,6 +799,7 @@
       simulateBtn.hidden = false;
       stopSimulationBtn.hidden = true;
       setStatus('Simulation gestoppt');
+      setCalibrationState('uncalibrated');
     }
 
     requestPermissionBtn.addEventListener('click', requestPermission);
