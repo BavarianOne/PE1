@@ -22,46 +22,65 @@
       justify-content: center;
       min-height: 300px;
     }
-    .compass {
-      width: 200px;
-      height: 200px;
-      border-radius: 50%;
-      background: conic-gradient(from 0deg, #2563eb, #3b82f6, #60a5fa, #93c5fd, #dbeafe, #ffffff, #dbeafe, #93c5fd, #60a5fa, #3b82f6, #2563eb);
-      border: 4px solid #1e40af;
+    .compass-wrapper {
       position: relative;
-      box-shadow: 0 8px 32px rgba(37, 99, 235, 0.3);
+      width: 280px;
+      height: 280px;
     }
-    .compass-needle {
+    .compass {
+      width: 240px;
+      height: 240px;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, 
+        #1e3a8a 0deg, #1e40af 22.5deg, #2563eb 45deg, #3b82f6 67.5deg,
+        #60a5fa 90deg, #93c5fd 112.5deg, #dbeafe 135deg, #eff6ff 157.5deg,
+        #ffffff 180deg, #eff6ff 202.5deg, #dbeafe 225deg, #93c5fd 247.5deg,
+        #60a5fa 270deg, #3b82f6 292.5deg, #2563eb 315deg, #1e40af 337.5deg,
+        #1e3a8a 360deg);
+      border: 4px solid #1e3a8a;
+      position: relative;
+      box-shadow: 
+        0 8px 32px rgba(30, 58, 138, 0.4),
+        inset 0 2px 4px rgba(255,255,255,0.3),
+        inset 0 -2px 4px rgba(0,0,0,0.1);
+      transition: transform 0.1s linear;
+      transform-origin: center center;
+    }
+    .compass-face {
       position: absolute;
-      top: 50%;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .compass-markings {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+    }
+    .marking {
+      position: absolute;
       left: 50%;
-      width: 4px;
-      height: 100px;
-      background: #dc2626;
+      top: 0;
+      width: 2px;
+      background: #1e3a8a;
       transform-origin: bottom center;
-      transform: translate(-50%, -100%) rotate(0deg);
-      border-radius: 2px 2px 0 0;
-      transition: transform 0.3s ease-out;
+      transform: translateX(-50%);
     }
-    .compass-needle::before {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      left: -6px;
-      width: 16px;
-      height: 16px;
-      background: #dc2626;
-      clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+    .marking-major {
+      height: 18px;
+      width: 3px;
+      background: #1e3a8a;
     }
-    .compass-needle::after {
-      content: '';
-      position: absolute;
-      top: -10px;
-      left: -6px;
-      width: 16px;
-      height: 16px;
-      background: #fbbf24;
-      clip-path: polygon(50% 100%, 0% 0%, 100% 0%);
+    .marking-minor {
+      height: 10px;
+      background: #3b82f6;
+      opacity: 0.6;
     }
     .compass-labels {
       position: absolute;
@@ -70,33 +89,133 @@
       width: 100%;
       height: 100%;
       border-radius: 50%;
+      pointer-events: none;
     }
     .compass-label {
       position: absolute;
-      font-weight: bold;
-      font-size: 1.2rem;
-      color: #1e40af;
-      text-shadow: 0 0 4px rgba(255,255,255,0.8);
+      font-weight: 700;
+      font-size: 1.3rem;
+      color: #1e3a8a;
+      text-shadow: 0 0 4px rgba(255,255,255,0.9), 0 1px 2px rgba(0,0,0,0.2);
       transform: translate(-50%, -50%);
+      pointer-events: none;
     }
-    .compass-label.n { top: 12%; left: 50%; }
-    .compass-label.e { top: 50%; left: 88%; }
-    .compass-label.s { top: 88%; left: 50%; }
-    .compass-label.w { top: 50%; left: 12%; }
-    .compass-degrees {
+    .compass-label.n { top: 8%; left: 50%; }
+    .compass-label.ne { top: 18%; left: 82%; }
+    .compass-label.e { top: 50%; left: 92%; }
+    .compass-label.se { top: 82%; left: 82%; }
+    .compass-label.s { top: 92%; left: 50%; }
+    .compass-label.sw { top: 82%; left: 18%; }
+    .compass-label.w { top: 50%; left: 8%; }
+    .compass-label.nw { top: 18%; left: 18%; }
+    
+    .compass-center {
       position: absolute;
-      bottom: -60px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 16px;
+      height: 16px;
+      background: radial-gradient(circle at 30% 30%, #fbbf24, #f59e0b);
+      border: 3px solid #1e3a8a;
+      border-radius: 50%;
+      box-shadow: 
+        inset 0 -2px 4px rgba(0,0,0,0.3),
+        0 2px 4px rgba(0,0,0,0.2);
+      z-index: 10;
+    }
+    
+    .compass-needle-fixed {
+      position: absolute;
+      top: 20px;
       left: 50%;
       transform: translateX(-50%);
-      font-family: monospace;
-      font-size: 1.1rem;
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 24px solid #dc2626;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+      z-index: 20;
+    }
+    .compass-needle-fixed::after {
+      content: '';
+      position: absolute;
+      top: -4px;
+      left: -6px;
+      width: 0;
+      height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-bottom: 18px solid #fbbf24;
+    }
+    
+    .compass-degrees {
+      position: absolute;
+      bottom: -50px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: 'SF Mono', 'Monospace', monospace;
+      font-size: 1.2rem;
+      color: #1e3a8a;
+      font-weight: 700;
+      background: rgba(255,255,255,0.9);
+      padding: 4px 16px;
+      border-radius: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      border: 2px solid #dbeafe;
+    }
+    
+    .location-display {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border: 1px solid #93c5fd;
+      border-radius: 12px;
+      text-align: center;
+      min-width: 280px;
+      max-width: 400px;
+    }
+    .location-display.hidden {
+      display: none;
+    }
+    .location-label {
+      font-size: 0.8rem;
       color: #2563eb;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.5rem;
       font-weight: 600;
     }
+    .location-coords {
+      font-family: 'SF Mono', 'Monospace', monospace;
+      font-size: 0.9rem;
+      color: #1e3a8a;
+      word-break: break-all;
+    }
+    .location-accuracy {
+      font-size: 0.75rem;
+      color: #64748b;
+      margin-top: 0.4rem;
+    }
+    .location-btn {
+      margin-top: 0.75rem;
+      padding: 0.5rem 1rem;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .location-btn:hover { background: #1d4ed8; }
+    .location-btn:disabled { background: #93c5fd; cursor: not-allowed; }
+    
     .compass-controls {
-      margin-top: 2rem;
+      margin-top: 1.5rem;
       display: flex;
-      gap: 1rem;
+      gap: 0.75rem;
       flex-wrap: wrap;
       justify-content: center;
     }
@@ -108,6 +227,30 @@
       margin-bottom: 0.5rem;
       color: #2563eb;
     }
+    #status {
+      text-align: center;
+      margin-bottom: 0.5rem;
+      font-size: 0.85rem;
+      min-height: 1.2em;
+      color: #2563eb;
+    }
+    #debugPanel {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-family: 'SF Mono', 'Monospace', monospace;
+      font-size: 0.7rem;
+      max-height: 250px;
+      overflow: auto;
+    }
+    #debugContent div {
+      margin: 2px 0;
+      color: #334155;
+    }
+    #debugContent .time { color: #94a3b8; }
+    #debugContent .source { color: #2563eb; font-weight: 700; }
   </style>
 </head>
 <body>
@@ -124,42 +267,49 @@
   <main>
     <section class="hero">
       <h2>Kompass</h2>
-      <p>Digitaler Kompass mit Device-Orientation API</p>
+      <p>Digitaler Kompass mit Device-Orientation API & GPS</p>
     </section>
 
     <section class="features">
       <article class="compass-container">
-        <div class="compass" id="compass">
-          <div class="compass-needle" id="needle"></div>
-          <div class="compass-labels">
-            <span class="compass-label n">N</span>
-            <span class="compass-label e">O</span>
-            <span class="compass-label s">S</span>
-            <span class="compass-label w">W</span>
+        <div class="compass-wrapper" id="compassWrapper">
+          <div class="compass" id="compass">
+            <div class="compass-face">
+              <div class="compass-markings" id="markings"></div>
+              <div class="compass-labels">
+                <span class="compass-label n">N</span>
+                <span class="compass-label ne">NO</span>
+                <span class="compass-label e">O</span>
+                <span class="compass-label se">SO</span>
+                <span class="compass-label s">S</span>
+                <span class="compass-label sw">SW</span>
+                <span class="compass-label w">W</span>
+                <span class="compass-label nw">NW</span>
+              </div>
+              <div class="compass-center"></div>
+            </div>
           </div>
+          <div class="compass-needle-fixed" id="fixedNeedle"></div>
+          <div class="compass-degrees" id="degrees">0°</div>
         </div>
-        <div class="compass-degrees" id="degrees">0°</div>
       </article>
 
-      <article class="compass-info">
-        <h3>🧭 Wie es funktioniert</h3>
-        <p>Der Kompass nutzt die <strong>DeviceOrientation API</strong> deines Browsers. Auf mobilen Geräten zeigt er die echte Himmelsrichtung basierend auf dem Magnetometer. Auf Desktop-Geräten ohne Sensoren kannst du die Orientierung simulieren.</p>
-      </article>
-
-      <article class="compass-info">
-        <h3>📱 Mobile Nutzung</h3>
-        <p>Auf Smartphones und Tablets: Halte das Gerät flach und drehe es - die Nadel zeigt immer nach Norden. <strong>Wichtig:</strong> Bei iOS/Safari musst du die Berechtigung für Geräteausrichtung in den Einstellungen erlauben (Einstellungen → Safari → Bewegung & Ausrichtung).</p>
-      </article>
+      <div class="location-display" id="locationDisplay">
+        <div class="location-label">📍 Aktueller Standort</div>
+        <div class="location-coords" id="locationCoords">Warte auf GPS...</div>
+        <div class="location-accuracy" id="locationAccuracy"></div>
+        <button class="location-btn" id="locationBtn" onclick="getLocation()">Standort aktualisieren</button>
+      </div>
     </section>
 
     <div class="compass-controls">
-      <div id="status" style="text-align:center; margin-bottom:0.5rem; font-size:0.9rem; min-height:1.2em;"></div>
+      <div id="status"></div>
       <button id="requestPermissionBtn" class="btn primary">Berechtigung anfordern (iOS)</button>
       <button id="simulateBtn" class="btn secondary">Simulation starten</button>
       <button id="stopSimulationBtn" class="btn secondary" hidden>Simulation stoppen</button>
       <button id="debugToggleBtn" class="btn secondary" style="margin-left:auto;">Debug ▼</button>
     </div>
-    <div id="debugPanel" hidden style="margin-top:1rem; padding:1rem; background:#f5f5f5; border-radius:8px; font-family:monospace; font-size:0.75rem; max-height:300px; overflow:auto;">
+    <div id="debugPanel" hidden>
       <div id="debugContent"></div>
     </div>
   </main>
@@ -170,7 +320,7 @@
 
   <script src="app.js"></script>
   <script>
-    const needle = document.getElementById('needle');
+    const compass = document.getElementById('compass');
     const degreesEl = document.getElementById('degrees');
     const requestPermissionBtn = document.getElementById('requestPermissionBtn');
     const simulateBtn = document.getElementById('simulateBtn');
@@ -179,6 +329,9 @@
     const debugToggleBtn = document.getElementById('debugToggleBtn');
     const debugPanel = document.getElementById('debugPanel');
     const debugContent = document.getElementById('debugContent');
+    const locationCoords = document.getElementById('locationCoords');
+    const locationAccuracy = document.getElementById('locationAccuracy');
+    const locationBtn = document.getElementById('locationBtn');
 
     console.log('DEBUG ELEMENTS:', { debugToggleBtn, debugPanel, debugContent });
 
@@ -187,6 +340,7 @@
     let usingAbsolute = false;
     let debugLog = [];
     let debugExpanded = false;
+    let watchId = null;
 
     function logDebug(source, data) {
       const entry = { time: new Date().toLocaleTimeString(), source, data };
@@ -202,7 +356,7 @@
         return;
       }
       debugContent.innerHTML = debugLog.map(e =>
-        `<div style="margin:2px 0; color:#333;"><span style="color:#666;">[${e.time}]</span> <span style="color:#2563eb;font-weight:bold;">${e.source}</span> ${JSON.stringify(e.data)}</div>`
+        `<div><span class="time">[${e.time}]</span> <span class="source">${e.source}</span> ${JSON.stringify(e.data)}</div>`
       ).join('');
       debugContent.scrollTop = debugContent.scrollHeight;
     }
@@ -215,8 +369,9 @@
 
     function updateCompass(heading) {
       currentHeading = heading;
-      needle.style.transform = `translate(-50%, -100%) rotate(${heading}deg)`;
-      degreesEl.textContent = `${Math.round(heading)}°`;
+      const h = ((heading % 360) + 360) % 360;
+      compass.style.transform = `rotate(${-h}deg)`;
+      degreesEl.textContent = `${Math.round(h)}°`;
     }
 
     function setStatus(msg, isError = false) {
@@ -225,6 +380,24 @@
         statusEl.style.color = isError ? '#dc2626' : '#2563eb';
       }
     }
+
+    function createMarkings() {
+      const container = document.getElementById('markings');
+      for (let i = 0; i < 360; i++) {
+        const mark = document.createElement('div');
+        mark.className = 'marking ' + (i % 15 === 0 ? 'marking-major' : 'marking-minor');
+        mark.style.transform = `translateX(-50%) rotate(${i}deg)`;
+        if (i % 15 === 0) {
+          mark.style.height = '18px';
+          mark.style.width = '3px';
+        } else if (i % 5 === 0) {
+          mark.style.height = '14px';
+          mark.style.width = '2px';
+        }
+        container.appendChild(mark);
+      }
+    }
+    createMarkings();
 
     // 1. Try Generic Sensor API (modern, most reliable)
     async function tryGenericSensor() {
@@ -296,6 +469,44 @@
         updateCompass(heading);
       }
     }
+
+    // GPS Location
+    function getLocation() {
+      if (!navigator.geolocation) {
+        locationCoords.textContent = 'Geolocation nicht unterstützt';
+        return;
+      }
+      locationBtn.disabled = true;
+      locationBtn.textContent = 'Suche...';
+      locationCoords.textContent = 'Ermittle Position...';
+      
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude, accuracy } = pos.coords;
+          locationCoords.textContent = `${latitude.toFixed(6)}°, ${longitude.toFixed(6)}°`;
+          locationAccuracy.textContent = `Genauigkeit: ±${Math.round(accuracy)} m`;
+          locationBtn.disabled = false;
+          locationBtn.textContent = 'Standort aktualisieren';
+          logDebug('GPS', { latitude, longitude, accuracy });
+        },
+        (err) => {
+          let msg = 'Fehler: ';
+          if (err.code === 1) msg += 'Berechtigung verweigert';
+          else if (err.code === 2) msg += 'Position nicht verfügbar';
+          else if (err.code === 3) msg += 'Timeout';
+          else msg += err.message;
+          locationCoords.textContent = msg;
+          locationAccuracy.textContent = '';
+          locationBtn.disabled = false;
+          locationBtn.textContent = 'Standort aktualisieren';
+          logDebug('GPS ERROR', { code: err.code, message: err.message });
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+      );
+    }
+
+    // Auto-start GPS on load
+    getLocation();
 
     // iOS permission
     async function requestPermission() {
@@ -369,8 +580,6 @@
       isAndroid: /Android/.test(navigator.userAgent)
     });
     
-    // iOS Safari needs explicit permission via requestPermission()
-    // Android Chrome uses site settings, not JS permission API
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     const needsPermission = isIOS && typeof DeviceOrientationEvent?.requestPermission === 'function';
     
