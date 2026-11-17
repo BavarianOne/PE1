@@ -34,6 +34,28 @@ if (window.matchMedia('(display-mode: standalone)').matches) {
   }
 }
 
+// Samsung Internet install hint (no beforeinstallprompt support)
+function showSamsungInstallHint() {
+  const isSamsung = /SamsungBrowser/.test(navigator.userAgent);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+  const dismissed = localStorage.getItem('samsungInstallDismissed');
+  
+  if (isSamsung && !isStandalone && !dismissed) {
+    const hint = document.createElement('div');
+    hint.id = 'samsungInstallHint';
+    hint.style.cssText = 'position:fixed;bottom:1rem;left:1rem;right:1rem;max-width:400px;margin:0 auto;background:#1e3a8a;color:white;padding:1rem;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.3);z-index:1000;font-size:0.9rem;line-height:1.5;';
+    hint.innerHTML = `
+      <strong>📱 Als App installieren</strong><br>
+      Tippe auf <strong>⋮ Menü</strong> → <strong>"App installieren"</strong> oder <strong>"Zum Startbildschirm"</strong>.
+      <button onclick="this.parentElement.remove();localStorage.setItem('samsungInstallDismissed','1')" style="margin-top:0.5rem;padding:0.4rem 1rem;background:#fbbf24;border:none;border-radius:6px;font-weight:600;">Verstanden</button>
+    `;
+    document.body.appendChild(hint);
+  }
+}
+
+// Show hint after short delay
+setTimeout(showSamsungInstallHint, 3000);
+
 document.addEventListener('DOMContentLoaded', () => {
   const currentPage = location.pathname.split('/').pop() || 'index.html';
   document.querySelectorAll('nav a').forEach(link => {
