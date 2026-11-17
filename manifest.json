@@ -2,12 +2,12 @@
   "name": "PE1",
   "short_name": "PE1",
   "description": "Progressive Web App - installierbar und offline-fähig",
-  "start_url": "index.html",
+  "start_url": ".",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",
   "orientation": "portrait-primary",
-  "scope": "/",
+  "scope": ".",
   "icons": [
     {
       "src": "icons/icon-72.png",
