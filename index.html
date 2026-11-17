@@ -19,32 +19,56 @@
   <header>
     <h1>PE1</h1>
     <nav>
-      <a href="index.html" class="active">Start</a>
-      <a href="about.html">Über</a>
-      <a href="contact.html">Kontakt</a>
-      <a href="compass.html">Kompass</a>
+      <a href="index.html" class="active" aria-label="Start">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+      </a>
+      <a href="compass.html" aria-label="Kompass">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <polygon points="12 2 15 8 12 8"/>
+          <polygon points="12 22 15 16 12 16"/>
+          <polygon points="2 12 8 15 8 12"/>
+          <polygon points="22 12 16 15 16 12"/>
+        </svg>
+      </a>
+      <a href="about.html" aria-label="Über">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 16v-4"/>
+          <path d="M12 8h.01"/>
+        </svg>
+      </a>
+      <a href="contact.html" aria-label="Kontakt">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+          <circle cx="12" cy="10" r="3"/>
+        </svg>
+      </a>
     </nav>
   </header>
 
   <main>
-    <section class="hero">
-      <h2>Willkommen bei PE1</h2>
-      <p>Deine Progressive Web App — installierbar, offline-fähig, schnell.</p>
-      <button id="installBtn" class="btn primary" hidden>App installieren</button>
+    <section class="hero" style="padding: 1rem; margin-bottom: 0.75rem;">
+      <h2 style="font-size: 1.1rem; margin-bottom: 0.35rem;">Willkommen bei PE1</h2>
+      <p style="font-size: 0.85rem; margin-bottom: 0.75rem;">Deine Progressive Web App — installierbar, offline-fähig, schnell.</p>
+      <button id="installBtn" class="btn primary" hidden style="padding: 0.5rem 1rem; font-size: 0.8rem;">App installieren</button>
     </section>
 
-    <section class="features">
-      <article>
-        <h3>📱 Installierbar</h3>
-        <p>Füge PE1 zum Startbildschirm hinzu — wie eine native App.</p>
+    <section class="features" style="grid-template-columns: 1fr; gap: 0.5rem;">
+      <article style="padding: 0.75rem;">
+        <h3 style="font-size: 0.9rem; margin-bottom: 0.3rem;">📱 Installierbar</h3>
+        <p style="font-size: 0.75rem; color: var(--text-muted);">Füge PE1 zum Startbildschirm hinzu — wie eine native App.</p>
       </article>
-      <article>
-        <h3>🔌 Offline</h3>
-        <p>Service Worker cached alles für Offline-Nutzung.</p>
+      <article style="padding: 0.75rem;">
+        <h3 style="font-size: 0.9rem; margin-bottom: 0.3rem;">🔌 Offline</h3>
+        <p style="font-size: 0.75rem; color: var(--text-muted);">Service Worker cached alles für Offline-Nutzung.</p>
       </article>
-      <article>
-        <h3>⚡ Schnell</h3>
-        <p>Optimiert für Performance und sofortige Ladezeiten.</p>
+      <article style="padding: 0.75rem;">
+        <h3 style="font-size: 0.9rem; margin-bottom: 0.3rem;">⚡ Schnell</h3>
+        <p style="font-size: 0.75rem; color: var(--text-muted);">Optimiert für Performance und sofortige Ladezeiten.</p>
       </article>
     </section>
   </main>

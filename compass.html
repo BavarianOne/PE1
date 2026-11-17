@@ -358,17 +358,41 @@
   <header>
     <h1>PE1</h1>
     <nav>
-      <a href="index.html">Start</a>
-      <a href="about.html">Über</a>
-      <a href="contact.html">Kontakt</a>
-      <a href="compass.html" class="active">Kompass</a>
+      <a href="index.html" aria-label="Start">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+      </a>
+      <a href="compass.html" class="active" aria-label="Kompass">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <polygon points="12 2 15 8 12 8"/>
+          <polygon points="12 22 15 16 12 16"/>
+          <polygon points="2 12 8 15 8 12"/>
+          <polygon points="22 12 16 15 16 12"/>
+        </svg>
+      </a>
+      <a href="about.html" aria-label="Über">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 16v-4"/>
+          <path d="M12 8h.01"/>
+        </svg>
+      </a>
+      <a href="contact.html" aria-label="Kontakt">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+          <circle cx="12" cy="10" r="3"/>
+        </svg>
+      </a>
     </nav>
   </header>
 
   <main>
-    <section class="hero">
-      <h2>Kompass</h2>
-      <p>Digitaler Kompass mit Device-Orientation API & GPS</p>
+    <section class="hero" style="padding: 0.75rem; margin-bottom: 0.5rem;">
+      <h2 style="font-size: 1.1rem; margin-bottom: 0.25rem;">Kompass</h2>
+      <p style="font-size: 0.8rem;">Digitaler Kompass mit Device-Orientation API & GPS</p>
     </section>
 
     <section class="features">
