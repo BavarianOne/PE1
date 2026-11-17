@@ -228,6 +228,7 @@
 
     // 1. Try Generic Sensor API (modern, most reliable)
     async function tryGenericSensor() {
+      logDebug('tryGenericSensor', { called: true, hasAPI: !!window.AbsoluteOrientationSensor });
       if (!window.AbsoluteOrientationSensor) {
         logDebug('SENSOR', { AbsoluteOrientationSensor: 'not available' });
         return false;
@@ -320,9 +321,14 @@
 
     async function initSensors() {
       logDebug('INIT', { userAgent: navigator.userAgent, hasAbsoluteOrientationSensor: !!window.AbsoluteOrientationSensor, hasDeviceOrientationEvent: !!window.DeviceOrientationEvent, needsPermission: typeof DeviceOrientationEvent.requestPermission === 'function' });
-      const ok = await tryGenericSensor();
-      if (!ok) {
-        tryDeviceOrientationAbsolute();
+      try {
+        const ok = await tryGenericSensor();
+        logDebug('INIT', { tryGenericSensorResult: ok });
+        if (!ok) {
+          tryDeviceOrientationAbsolute();
+        }
+      } catch (e) {
+        logDebug('INIT ERROR', { error: e.message, stack: e.stack });
       }
     }
 
