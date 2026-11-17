@@ -157,6 +157,10 @@
       <button id="requestPermissionBtn" class="btn primary">Berechtigung anfordern (iOS)</button>
       <button id="simulateBtn" class="btn secondary">Simulation starten</button>
       <button id="stopSimulationBtn" class="btn secondary" hidden>Simulation stoppen</button>
+      <button id="debugToggleBtn" class="btn secondary" style="margin-left:auto;">Debug ▼</button>
+    </div>
+    <div id="debugPanel" hidden style="margin-top:1rem; padding:1rem; background:#f5f5f5; border-radius:8px; font-family:monospace; font-size:0.75rem; max-height:300px; overflow:auto;">
+      <div id="debugContent"></div>
     </div>
   </main>
 
@@ -172,10 +176,35 @@
     const simulateBtn = document.getElementById('simulateBtn');
     const stopSimulationBtn = document.getElementById('stopSimulationBtn');
     const statusEl = document.getElementById('status');
+    const debugToggleBtn = document.getElementById('debugToggleBtn');
+    const debugPanel = document.getElementById('debugPanel');
+    const debugContent = document.getElementById('debugContent');
 
     let simulateInterval = null;
     let currentHeading = 0;
     let usingAbsolute = false;
+    let debugLog = [];
+    let debugExpanded = false;
+
+    function logDebug(source, data) {
+      const entry = { time: new Date().toLocaleTimeString(), source, data };
+      debugLog.push(entry);
+      if (debugLog.length > 100) debugLog.shift();
+      renderDebug();
+    }
+
+    function renderDebug() {
+      debugContent.innerHTML = debugLog.map(e =>
+        `<div style="margin:2px 0; color:#333;"><span style="color:#666;">[${e.time}]</span> <span style="color:#2563eb;font-weight:bold;">${e.source}</span> ${JSON.stringify(e.data)}</div>`
+      ).join('');
+      debugContent.scrollTop = debugContent.scrollHeight;
+    }
+
+    debugToggleBtn.addEventListener('click', () => {
+      debugExpanded = !debugExpanded;
+      debugPanel.hidden = !debugExpanded;
+      debugToggleBtn.textContent = debugExpanded ? 'Debug ▲' : 'Debug ▼';
+    });
 
     function updateCompass(heading) {
       currentHeading = heading;
@@ -192,25 +221,29 @@
 
     // 1. Try Generic Sensor API (modern, most reliable)
     async function tryGenericSensor() {
-      if (!window.AbsoluteOrientationSensor) return false;
+      if (!window.AbsoluteOrientationSensor) {
+        logDebug('SENSOR', { AbsoluteOrientationSensor: 'not available' });
+        return false;
+      }
       try {
         const sensor = new AbsoluteOrientationSensor({ frequency: 20, referenceFrame: 'device' });
         sensor.onreading = () => {
-          // quaternion to heading (yaw)
           const [x, y, z, w] = [sensor.quaternion[0], sensor.quaternion[1], sensor.quaternion[2], sensor.quaternion[3]];
           const heading = Math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z)) * 180 / Math.PI;
+          logDebug('AbsoluteOrientationSensor', { quaternion: [x,y,z,w].map(v=>v.toFixed(4)), heading: heading.toFixed(1) });
           updateCompass((heading + 360) % 360);
         };
         sensor.onerror = (e) => {
-          console.log('AbsoluteOrientationSensor error:', e.error?.name);
+          logDebug('AbsoluteOrientationSensor ERROR', { error: e.error?.name });
           tryDeviceOrientationAbsolute();
         };
         sensor.start();
+        logDebug('SENSOR', { started: 'AbsoluteOrientationSensor', referenceFrame: 'device' });
         setStatus('🧭 AbsoluteOrientationSensor aktiv');
         usingAbsolute = true;
         return true;
       } catch (e) {
-        console.log('AbsoluteOrientationSensor not available:', e.name);
+        logDebug('SENSOR', { AbsoluteOrientationSensor: 'constructor failed', error: e.name });
         return false;
       }
     }
@@ -219,10 +252,11 @@
     function tryDeviceOrientationAbsolute() {
       if (!window.DeviceOrientationEvent) return false;
       window.addEventListener('deviceorientationabsolute', handleAbsoluteOrientation);
-      // Test if it actually fires absolute values
+      logDebug('SENSOR', { listening: 'deviceorientationabsolute' });
       setTimeout(() => {
         if (!usingAbsolute) {
           window.removeEventListener('deviceorientationabsolute', handleAbsoluteOrientation);
+          logDebug('SENSOR', { fallback: 'deviceorientationabsolute timeout → relative' });
           tryDeviceOrientationRelative();
         }
       }, 2000);
@@ -230,9 +264,10 @@
     }
 
     function handleAbsoluteOrientation(event) {
+      logDebug('deviceorientationabsolute', { alpha: event.alpha, beta: event.beta, gamma: event.gamma, absolute: event.absolute, webkitCompassHeading: event.webkitCompassHeading });
       if (event.absolute === true && event.alpha !== null) {
         usingAbsolute = true;
-        const heading = 360 - event.alpha; // alpha: 0 = North, clockwise
+        const heading = 360 - event.alpha;
         updateCompass(heading);
         setStatus('🧭 deviceorientationabsolute aktiv (echter Norden)');
       }
@@ -241,11 +276,13 @@
     // 3. Fallback: deviceorientation (relative, nicht echter Norden)
     function tryDeviceOrientationRelative() {
       window.addEventListener('deviceorientation', handleRelativeOrientation);
+      logDebug('SENSOR', { listening: 'deviceorientation (relative)' });
       setStatus('⚠️ deviceorientation aktiv (relativ, kein echter Norden)', true);
     }
 
     function handleRelativeOrientation(event) {
       if (usingAbsolute) return;
+      logDebug('deviceorientation', { alpha: event.alpha, beta: event.beta, gamma: event.gamma, absolute: event.absolute, webkitCompassHeading: event.webkitCompassHeading });
       if (event.alpha !== null) {
         const heading = 360 - event.alpha;
         updateCompass(heading);
@@ -275,9 +312,9 @@
     }
 
     async function initSensors() {
+      logDebug('INIT', { userAgent: navigator.userAgent, hasAbsoluteOrientationSensor: !!window.AbsoluteOrientationSensor, hasDeviceOrientationEvent: !!window.DeviceOrientationEvent, needsPermission: typeof DeviceOrientationEvent.requestPermission === 'function' });
       const ok = await tryGenericSensor();
       if (!ok) {
-        // deviceorientationabsolute doesn't need permission on Android
         tryDeviceOrientationAbsolute();
       }
     }
