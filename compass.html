@@ -180,6 +180,8 @@
     const debugPanel = document.getElementById('debugPanel');
     const debugContent = document.getElementById('debugContent');
 
+    console.log('DEBUG ELEMENTS:', { debugToggleBtn, debugPanel, debugContent });
+
     let simulateInterval = null;
     let currentHeading = 0;
     let usingAbsolute = false;
@@ -191,9 +193,14 @@
       debugLog.push(entry);
       if (debugLog.length > 100) debugLog.shift();
       renderDebug();
+      console.log('DEBUG LOG:', source, data);
     }
 
     function renderDebug() {
+      if (!debugContent) {
+        console.error('debugContent element not found!');
+        return;
+      }
       debugContent.innerHTML = debugLog.map(e =>
         `<div style="margin:2px 0; color:#333;"><span style="color:#666;">[${e.time}]</span> <span style="color:#2563eb;font-weight:bold;">${e.source}</span> ${JSON.stringify(e.data)}</div>`
       ).join('');
