@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="description" content="Kompass - PE1 Progressive Web App">
+  <title>Kompass | PE1</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+  <link rel="stylesheet" href="styles.css">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="PE1">
+  <style>
+    .compass-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 300px;
+    }
+    .compass {
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, #2563eb, #3b82f6, #60a5fa, #93c5fd, #dbeafe, #ffffff, #dbeafe, #93c5fd, #60a5fa, #3b82f6, #2563eb);
+      border: 4px solid #1e40af;
+      position: relative;
+      box-shadow: 0 8px 32px rgba(37, 99, 235, 0.3);
+    }
+    .compass-needle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 4px;
+      height: 100px;
+      background: #dc2626;
+      transform-origin: bottom center;
+      transform: translate(-50%, -100%) rotate(0deg);
+      border-radius: 2px 2px 0 0;
+      transition: transform 0.3s ease-out;
+    }
+    .compass-needle::before {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: -6px;
+      width: 16px;
+      height: 16px;
+      background: #dc2626;
+      clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+    }
+    .compass-needle::after {
+      content: '';
+      position: absolute;
+      top: -10px;
+      left: -6px;
+      width: 16px;
+      height: 16px;
+      background: #fbbf24;
+      clip-path: polygon(50% 100%, 0% 0%, 100% 0%);
+    }
+    .compass-labels {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+    }
+    .compass-label {
+      position: absolute;
+      font-weight: bold;
+      font-size: 1.2rem;
+      color: #1e40af;
+      text-shadow: 0 0 4px rgba(255,255,255,0.8);
+      transform: translate(-50%, -50%);
+    }
+    .compass-label.n { top: 12%; left: 50%; }
+    .compass-label.e { top: 50%; left: 88%; }
+    .compass-label.s { top: 88%; left: 50%; }
+    .compass-label.w { top: 50%; left: 12%; }
+    .compass-degrees {
+      position: absolute;
+      bottom: -60px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: monospace;
+      font-size: 1.1rem;
+      color: #2563eb;
+      font-weight: 600;
+    }
+    .compass-controls {
+      margin-top: 2rem;
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .compass-info {
+      text-align: center;
+      max-width: 400px;
+    }
+    .compass-info h3 {
+      margin-bottom: 0.5rem;
+      color: #2563eb;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>PE1</h1>
+    <nav>
+      <a href="index.html">Start</a>
+      <a href="about.html">Über</a>
+      <a href="contact.html">Kontakt</a>
+      <a href="compass.html" class="active">Kompass</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h2>Kompass</h2>
+      <p>Digitaler Kompass mit Device-Orientation API</p>
+    </section>
+
+    <section class="features">
+      <article class="compass-container">
+        <div class="compass" id="compass">
+          <div class="compass-needle" id="needle"></div>
+          <div class="compass-labels">
+            <span class="compass-label n">N</span>
+            <span class="compass-label e">O</span>
+            <span class="compass-label s">S</span>
+            <span class="compass-label w">W</span>
+          </div>
+        </div>
+        <div class="compass-degrees" id="degrees">0°</div>
+      </article>
+
+      <article class="compass-info">
+        <h3>🧭 Wie es funktioniert</h3>
+        <p>Der Kompass nutzt die <strong>DeviceOrientation API</strong> deines Browsers. Auf mobilen Geräten zeigt er die echte Himmelsrichtung basierend auf dem Magnetometer. Auf Desktop-Geräten ohne Sensoren kannst du die Orientierung simulieren.</p>
+      </article>
+
+      <article class="compass-info">
+        <h3>📱 Mobile Nutzung</h3>
+        <p>Auf Smartphones und Tablets: Halte das Gerät flach und drehe es - die Nadel zeigt immer nach Norden. <strong>Wichtig:</strong> Bei iOS/Safari musst du die Berechtigung für Geräteausrichtung in den Einstellungen erlauben (Einstellungen → Safari → Bewegung & Ausrichtung).</p>
+      </article>
+    </section>
+
+    <div class="compass-controls">
+      <button id="requestPermissionBtn" class="btn primary">Berechtigung anfordern (iOS)</button>
+      <button id="simulateBtn" class="btn secondary">Simulation starten</button>
+      <button id="stopSimulationBtn" class="btn secondary" hidden>Simulation stoppen</button>
+    </div>
+  </main>
+
+  <footer>
+    <p>&copy; 2025 PE1. <a href="https://github.com/BavarianOne/PE1">GitHub</a></p>
+  </footer>
+
+  <script src="app.js"></script>
+  <script>
+    const needle = document.getElementById('needle');
+    const degreesEl = document.getElementById('degrees');
+    const requestPermissionBtn = document.getElementById('requestPermissionBtn');
+    const simulateBtn = document.getElementById('simulateBtn');
+    const stopSimulationBtn = document.getElementById('stopSimulationBtn');
+
+    let simulateInterval = null;
+    let currentHeading = 0;
+    let hasPermission = false;
+
+    function updateCompass(heading) {
+      currentHeading = heading;
+      needle.style.transform = `translate(-50%, -100%) rotate(${heading}deg)`;
+      degreesEl.textContent = `${Math.round(heading)}°`;
+    }
+
+    function handleOrientation(event) {
+      let heading;
+      if (event.webkitCompassHeading !== undefined) {
+        heading = event.webkitCompassHeading;
+      } else if (event.alpha !== null) {
+        heading = 360 - event.alpha;
+      } else {
+        return;
+      }
+      updateCompass(heading);
+    }
+
+    async function requestPermission() {
+      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+          const permission = await DeviceOrientationEvent.requestPermission();
+          if (permission === 'granted') {
+            hasPermission = true;
+            window.addEventListener('deviceorientation', handleOrientation);
+            requestPermissionBtn.hidden = true;
+            alert('Berechtigung erteilt! Der Kompass funktioniert jetzt.');
+          } else {
+            alert('Berechtigung verweigert. Simulation verfügbar.');
+          }
+        } catch (err) {
+          console.error('Permission error:', err);
+          alert('Fehler bei der Berechtigungsanfrage.');
+        }
+      } else {
+        hasPermission = true;
+        window.addEventListener('deviceorientation', handleOrientation);
+        requestPermissionBtn.hidden = true;
+      }
+    }
+
+    function startSimulation() {
+      if (simulateInterval) return;
+      simulateBtn.hidden = true;
+      stopSimulationBtn.hidden = false;
+      let angle = 0;
+      simulateInterval = setInterval(() => {
+        angle = (angle + 2) % 360;
+        updateCompass(angle);
+      }, 50);
+    }
+
+    function stopSimulation() {
+      if (simulateInterval) {
+        clearInterval(simulateInterval);
+        simulateInterval = null;
+      }
+      simulateBtn.hidden = false;
+      stopSimulationBtn.hidden = true;
+    }
+
+    requestPermissionBtn.addEventListener('click', requestPermission);
+    simulateBtn.addEventListener('click', startSimulation);
+    stopSimulationBtn.addEventListener('click', stopSimulation);
+
+    if (window.DeviceOrientationEvent) {
+      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        requestPermissionBtn.hidden = false;
+      } else {
+        hasPermission = true;
+        window.addEventListener('deviceorientation', handleOrientation);
+        requestPermissionBtn.hidden = true;
+      }
+    } else {
+      requestPermissionBtn.hidden = true;
+      alert('DeviceOrientation API nicht unterstützt. Simulation verfügbar.');
+    }
+  </script>
+</body>
+</html>
