@@ -438,8 +438,8 @@
       <div class="hud-action-panel" id="permissionPanel">
         <p class="hud-permission-text" id="permissionText">Sensor-Subsystem erfordert Freigabe für Bewegung & Ausrichtung. Mikrofon-Zugriff optional für Audio-Pegel.</p>
         <div style="display: flex; gap: var(--space-3); justify-content: center; flex-wrap: wrap;">
-          <button class="hud-btn" onclick="requestAllPermissions()" id="sensorBtn">Alle Sensoren aktivieren</button>
-          <button class="hud-btn secondary" onclick="requestMicPermission()" id="micBtn">Mikrofon aktivieren</button>
+          <button class="hud-btn" id="sensorBtn">Alle Sensoren aktivieren</button>
+          <button class="hud-btn secondary" id="micBtn">Mikrofon aktivieren</button>
         </div>
         <div id="apiStatus" style="margin-top: var(--space-4); display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: center;"></div>
       </div>
@@ -1170,8 +1170,13 @@
     // Initial API status
     updateApiStatus();
 
+    // Attach event listeners (more reliable than onclick)
+    document.getElementById('sensorBtn').addEventListener('click', requestAllPermissions);
+    document.getElementById('micBtn').addEventListener('click', requestMicPermission);
+
     // Debug: verify functions are globally accessible
     console.log('Functions defined:', typeof requestAllPermissions, typeof requestMicPermission, typeof initAllSensors);
+    console.log('Buttons wired:', !!document.getElementById('sensorBtn'), !!document.getElementById('micBtn'));
   </script>
 </body>
 </html>
