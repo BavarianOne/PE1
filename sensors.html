@@ -763,12 +763,6 @@
         ctx.fillText(`${axis.label}: ${fmt(lastVal, 1, 6)}`, 4, 4 + i * 14);
       });
     }
-      ctx.arc(lastX, Math.max(4, Math.min(height - 4, lastY)), 4, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    }
 
     // ============ MICROPHONE VISUALIZER ============
     let audioContext = null;
