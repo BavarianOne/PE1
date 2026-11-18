@@ -348,14 +348,14 @@
                                   // Main filter: high-Q lowpass for vocal/tube character (PRE-distortion)
                                   this.humFilter = ctx.createBiquadFilter();
                                   this.humFilter.type = 'lowpass';
-                                  this.humFilter.frequency.value = 300;  // Start dark
-                                  this.humFilter.Q.value = 10.0;         // Q=10 for vocal/tube scream character
+                                  this.humFilter.frequency.value = 250;  // Idle hum (lower = darker)
+                                  this.humFilter.Q.value = 6.0;          // Q=6 moderate resonance (no screeching)
                                   this.humFilter.connect(this.humGain);
 
                                   // Distortion (WaveShaper) for dirty plasma growl (POST-filter)
                                   this.distortion = ctx.createWaveShaper();
-                                  this.distortion.curve = this.createDistortionCurve(25);  // k=25 for slightly less grit
-                                  this.distortion.oversample = '4x';
+                                  this.distortion.curve = this.createDistortionCurve(20);  // k=20 for subtle grit
+                                  this.distortion.oversample = '2x';
                                   // Insert distortion between filter and gain
                                   this.humFilter.disconnect();
                                   this.humFilter.connect(this.distortion);
@@ -406,12 +406,12 @@
                                   this.noiseNode.loop = true;
 
                                   this.noiseFilter = ctx.createBiquadFilter();
-                                  this.noiseFilter.type = 'lowpass';   // Lowpass instead of bandpass - removes hiss/sizzle
-                                  this.noiseFilter.frequency.value = 600;  // Start at 600Hz
-                                  this.noiseFilter.Q.value = 1.0;        // Flat response, no resonance peak
+                                  this.noiseFilter.type = 'lowpass';
+                                  this.noiseFilter.frequency.value = 600;  // Hard capped at 600Hz (no zisch)
+                                  this.noiseFilter.Q.value = 1.0;
 
                                   this.noiseGain = ctx.createGain();
-                                  this.noiseGain.gain.value = 0.02;  // Very subtle at idle
+                                  this.noiseGain.gain.value = 0.04;  // Very low background level
 
                                   this.noiseNode.connect(this.noiseFilter);
                                   this.noiseFilter.connect(this.noiseGain);
@@ -471,9 +471,9 @@
                                   // 2. OSCs stay FIXED at base frequencies (NO pitch sweep!)
                                   // humOscA: 55Hz, humOscB: 56.5Hz, humSubOsc: 27.5Hz - already set in init()
 
-                                  // 3. Filter opens quickly: 200Hz -> 600Hz (not 800, keep it tighter)
+                                  // 3. Filter opens quickly: 250Hz -> 600Hz (matches idle/max range)
                                   this.humFilter.frequency.cancelScheduledValues(now);
-                                  this.humFilter.frequency.setValueAtTime(200, now);
+                                  this.humFilter.frequency.setValueAtTime(250, now);
                                   this.humFilter.frequency.exponentialRampToValueAtTime(600, now + 0.15);
 
                                   // 4. Master volume ramp up (prevents clicking)
@@ -495,10 +495,10 @@
 
                                   // OSCs stay FIXED at base frequencies (NO pitch sweep down!)
 
-                                  // Filter closes: to 150Hz (very dark)
+                                  // Filter closes: to 250Hz (idle value)
                                   this.humFilter.frequency.cancelScheduledValues(now);
                                   this.humFilter.frequency.setValueAtTime(this.humFilter.frequency.value, now);
-                                  this.humFilter.frequency.exponentialRampToValueAtTime(150, now + 0.3);
+                                  this.humFilter.frequency.exponentialRampToValueAtTime(250, now + 0.3);
 
                                   // Master volume ramp down
                                   this.humGain.gain.cancelScheduledValues(now);
@@ -529,14 +529,13 @@
                                   // OSCILLATOR FREQUENCIES STAY FIXED (55Hz, 56.5Hz, 27.5Hz) - NO PITCH BENDING!
                                   // Only the FILTER opens/closes with movement
 
-                                  // Filter opens up with intensity - CAP at ~2000Hz (vocal range, no firecracker highs)
-                                  // Slower smoothing (0.08) prevents abrupt high-frequency spikes from sensor jitter
-                                  this.humFilter.frequency.setTargetAtTime(300 + intensity * 1700, now, 0.08);  // Max 2000Hz
-                                  // Q stays at 10 for vocal/tube scream character
+                                  // Filter opens with intensity: 250Hz -> max 1500Hz (Q=6 moderate, no screech)
+                                  // Slower smoothing (0.05) prevents abrupt spikes from sensor jitter
+                                  this.humFilter.frequency.setTargetAtTime(250 + intensity * 1250, now, 0.05);  // Max 1500Hz
 
-                                  // Noise layer: LOWPASS capped at 1000Hz, very subtle gain
-                                  this.noiseFilter.frequency.setTargetAtTime(600 + intensity * 400, now, 0.08);  // Max 1000Hz
-                                  this.noiseGain.gain.setTargetAtTime(0.015 + intensity * 0.04, now, 0.08);    // Max 0.055 (much quieter)
+                                  // Noise layer: LOWPASS hard capped at 600Hz, very low gain
+                                  this.noiseFilter.frequency.setTargetAtTime(600, now, 0.05);  // Fixed 600Hz
+                                  this.noiseGain.gain.setTargetAtTime(0.02 + intensity * 0.02, now, 0.05);  // Max 0.04
 
                                   // Stereo panning - subtle idle auto-pan for width
                                   if (this.panner && this.panner.pan) {
