@@ -829,6 +829,7 @@
 
     async function requestMicPermission() {
       const btn = document.getElementById('micBtn');
+      console.log('requestMicPermission called');
       try {
         btn.disabled = true;
         btn.textContent = 'ANFRAGE...';
@@ -896,6 +897,8 @@
       const btn = document.getElementById('sensorBtn');
       const text = document.getElementById('permissionText');
       const panel = document.getElementById('permissionPanel');
+
+      console.log('requestAllPermissions called');
 
       // iOS DeviceMotion permission
       if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
@@ -1166,6 +1169,9 @@
 
     // Initial API status
     updateApiStatus();
+
+    // Debug: verify functions are globally accessible
+    console.log('Functions defined:', typeof requestAllPermissions, typeof requestMicPermission, typeof initAllSensors);
   </script>
 </body>
 </html>
