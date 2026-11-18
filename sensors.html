@@ -286,7 +286,7 @@
       font-weight: 500;
       text-align: right;
       font-variant-numeric: tabular-nums;
-      min-width: 7ch;
+      min-width: 9ch;
     }
 
     .compass-visual {
@@ -666,13 +666,14 @@
     let lastAccelTime = performance.now();
 
     // Fixed-width number formatting to prevent layout shift
-    function fmt(val, decimals = 2, width = 7) {
+    // Widths calculated for max expected values: sign + integer + dot + decimals
+    // Accel: ±999.99 → 8 chars | Orient: ±360.0 → 7 chars | Mag: ±999.9 → 8 chars | Downlink: ±999.9 → 8 chars
+    function fmt(val, decimals = 2, width = 8) {
       const sign = val >= 0 ? '+' : '−';
       const absVal = Math.abs(val).toFixed(decimals);
-      // Pad to fixed width: sign + integer part + dot + decimals
       return sign + absVal.padStart(width - 1, ' ');
     }
-    function fmtInt(val, width = 5) {
+    function fmtInt(val, width = 6) {
       const sign = val >= 0 ? '+' : '−';
       const absVal = Math.abs(Math.round(val)).toString();
       return sign + absVal.padStart(width - 1, ' ');
