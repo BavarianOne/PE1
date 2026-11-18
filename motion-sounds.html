@@ -406,9 +406,9 @@
                                   this.noiseNode.loop = true;
 
                                   this.noiseFilter = ctx.createBiquadFilter();
-                                  this.noiseFilter.type = 'bandpass';
-                                  this.noiseFilter.frequency.value = 400;
-                                  this.noiseFilter.Q.value = 2.5;
+                                  this.noiseFilter.type = 'lowpass';   // Lowpass instead of bandpass - removes hiss/sizzle
+                                  this.noiseFilter.frequency.value = 600;  // Start at 600Hz
+                                  this.noiseFilter.Q.value = 1.0;        // Flat response, no resonance peak
 
                                   this.noiseGain = ctx.createGain();
                                   this.noiseGain.gain.value = 0.02;  // Very subtle at idle
@@ -507,22 +507,24 @@
                                   const intensityVol = intensity * 0.28;
                                   const targetHumVol = baseHumVol + intensityVol;
         
-                                  // Smooth volume using setTargetAtTime
-                                  this.humGain.gain.setTargetAtTime(targetHumVol, now, 0.03);
+                                  // Smooth volume using setTargetAtTime (slower for stability)
+                                  this.humGain.gain.setTargetAtTime(targetHumVol, now, 0.05);
 
                                   // Pitch modulation with intensity (all track together)
                                   const pitchShift = intensity * 30;  // Subtle pitch rise with speed
-                                  this.humOscA.frequency.setTargetAtTime(this.baseFreq + pitchShift, now, 0.03);
-                                  this.humOscB.frequency.setTargetAtTime(56.5 + pitchShift * 1.027, now, 0.03);  // Keep detune ratio
-                                  this.humSubOsc.frequency.setTargetAtTime(this.baseFreq * 0.5 + pitchShift * 0.5, now, 0.03);
+                                  this.humOscA.frequency.setTargetAtTime(this.baseFreq + pitchShift, now, 0.05);
+                                  this.humOscB.frequency.setTargetAtTime(56.5 + pitchShift * 1.027, now, 0.05);  // Keep detune ratio
+                                  this.humSubOsc.frequency.setTargetAtTime(this.baseFreq * 0.5 + pitchShift * 0.5, now, 0.05);
 
-                                  // Filter opens up with intensity (brighter when moving) - max ~1500Hz (vocal range)
-                                  this.humFilter.frequency.setTargetAtTime(300 + intensity * 1200, now, 0.03);
+                                  // Filter opens up with intensity - CAP at ~2000Hz (vocal range, no firecracker highs)
+                                  // Slower smoothing (0.08) prevents abrupt high-frequency spikes from sensor jitter
+                                  this.humFilter.frequency.setTargetAtTime(300 + intensity * 1700, now, 0.08);  // Max 2000Hz
                                   // Q stays high (12) for the vocal scream character
 
-                                  // Noise layer: filter opens + volume up with motion (max ~1200Hz, no piercing highs)
-                                  this.noiseFilter.frequency.setTargetAtTime(400 + intensity * 800, now, 0.03);
-                                  this.noiseGain.gain.setTargetAtTime(0.03 + intensity * 0.12, now, 0.03);
+                                  // Noise layer: LOWPASS (not bandpass) capped at 1000Hz, very subtle gain
+                                  // This removes the "hiss/sizzle" that causes firecracker sound
+                                  this.noiseFilter.frequency.setTargetAtTime(600 + intensity * 400, now, 0.08);  // Max 1000Hz
+                                  this.noiseGain.gain.setTargetAtTime(0.015 + intensity * 0.04, now, 0.08);    // Max 0.055 (much quieter)
 
                                   // Stereo panning - subtle idle auto-pan for width
                                   if (this.panner && this.panner.pan) {
