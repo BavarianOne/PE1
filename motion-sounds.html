@@ -299,12 +299,15 @@
     // Sound engines
     const soundEngines = {
       lightsaber: {
-                                      // Ultra-minimal Lightsaber: triangle + sine, no distortion, no noise, filter 120-370Hz
-                                      humOscA: null,          // Triangle 55Hz (warm, dull)
+                                      // Lightsaber with spatial movement: triangle+sine hum + deep noise whoosh + stereo panning
+                                      humOscA: null,          // Triangle 55Hz (warm)
                                       humSubOsc: null,        // Sine 27.5Hz (pure sub)
                                       humGain: null,          // Master gain
-                                      humFilter: null,        // Lowpass 120-370Hz, Q=4
-                                      panner: null,
+                                      humFilter: null,        // Lowpass 150-350Hz, Q=5
+                                      noiseNode: null,        // White noise for whoosh
+                                      noiseFilter: null,      // Lowpass 400Hz (no hiss)
+                                      noiseGain: null,        // Swells with movement
+                                      panner: null,           // StereoPanner for spatial
                                       baseFreq: 55,
                                       isActive: false,
 
@@ -312,25 +315,25 @@
                                         // Master gain
                                         this.humGain = ctx.createGain();
                                         this.humGain.gain.value = 0;
-                                        this.humGain.connect(ctx.destination);
 
-                                        // Main filter: hard limited to 370Hz max (no highs possible!)
-                                        this.humFilter = ctx.createBiquadFilter();
-                                        this.humFilter.type = 'lowpass';
-                                        this.humFilter.frequency.value = 120;  // Idle: very deep
-                                        this.humFilter.Q.value = 4.0;          // Q=4 moderate
-                                        this.humFilter.connect(this.humGain);
-
-                                        // Stereo panner (optional)
+                                        // Stereo panner for spatial movement
                                         if (ctx.createStereoPanner) {
                                           this.panner = ctx.createStereoPanner();
                                           this.panner.pan.value = 0;
-                                          this.humGain.disconnect();
                                           this.humGain.connect(this.panner);
                                           this.panner.connect(ctx.destination);
+                                        } else {
+                                          this.humGain.connect(ctx.destination);
                                         }
 
-                                        // Triangle 55Hz - naturally dull/warm
+                                        // Main filter for hum: 150Hz idle, max ~350Hz
+                                        this.humFilter = ctx.createBiquadFilter();
+                                        this.humFilter.type = 'lowpass';
+                                        this.humFilter.frequency.value = 150;
+                                        this.humFilter.Q.value = 5.0;
+                                        this.humFilter.connect(this.humGain);
+
+                                        // Triangle 55Hz - warm fundamental
                                         this.humOscA = ctx.createOscillator();
                                         this.humOscA.type = 'triangle';
                                         this.humOscA.frequency.value = 55;
@@ -344,7 +347,33 @@
                                         this.humSubOsc.connect(this.humFilter);
                                         this.humSubOsc.start();
 
-                                        // NO distortion, NO noise, NO detuned saws
+                                        // --- NOISE LAYER: deep whoosh (strictly under 400Hz) ---
+                                        const bufferSize = ctx.sampleRate * 2;
+                                        const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+                                        const output = noiseBuffer.getChannelData(0);
+                                        for (let i = 0; i < bufferSize; i++) {
+                                          output[i] = Math.random() * 2 - 1;
+                                        }
+                                        this.noiseNode = ctx.createBufferSource();
+                                        this.noiseNode.buffer = noiseBuffer;
+                                        this.noiseNode.loop = true;
+
+                                        this.noiseFilter = ctx.createBiquadFilter();
+                                        this.noiseFilter.type = 'lowpass';
+                                        this.noiseFilter.frequency.value = 400;  // Hard capped, no hiss
+                                        this.noiseFilter.Q.value = 1.0;
+
+                                        this.noiseGain = ctx.createGain();
+                                        this.noiseGain.gain.value = 0;  // Silent at idle
+
+                                        this.noiseNode.connect(this.noiseFilter);
+                                        this.noiseFilter.connect(this.noiseGain);
+                                        if (this.panner) {
+                                          this.noiseGain.connect(this.panner);
+                                        } else {
+                                          this.noiseGain.connect(ctx.destination);
+                                        }
+                                        this.noiseNode.start();
                                       },
 
                                       activate() {
@@ -354,15 +383,15 @@
 
                                         // OSCs stay FIXED at 55Hz / 27.5Hz
 
-                                        // Filter opens: 120Hz -> 370Hz (max 250Hz range)
+                                        // Filter opens: 150Hz -> 350Hz
                                         this.humFilter.frequency.cancelScheduledValues(now);
-                                        this.humFilter.frequency.setValueAtTime(120, now);
-                                        this.humFilter.frequency.exponentialRampToValueAtTime(370, now + 0.15);
+                                        this.humFilter.frequency.setValueAtTime(150, now);
+                                        this.humFilter.frequency.exponentialRampToValueAtTime(350, now + 0.15);
 
                                         // Volume ramp up
                                         this.humGain.gain.cancelScheduledValues(now);
                                         this.humGain.gain.setValueAtTime(0.0, now);
-                                        this.humGain.gain.linearRampToValueAtTime(0.5, now + 0.15);
+                                        this.humGain.gain.linearRampToValueAtTime(0.4, now + 0.15);
                                       },
 
                                       deactivate() {
@@ -370,15 +399,20 @@
                                         this.isActive = false;
                                         const now = audioCtx.currentTime;
 
-                                        // Filter closes to 120Hz
+                                        // Filter closes to 150Hz
                                         this.humFilter.frequency.cancelScheduledValues(now);
                                         this.humFilter.frequency.setValueAtTime(this.humFilter.frequency.value, now);
-                                        this.humFilter.frequency.exponentialRampToValueAtTime(120, now + 0.3);
+                                        this.humFilter.frequency.exponentialRampToValueAtTime(150, now + 0.3);
 
                                         // Volume down
                                         this.humGain.gain.cancelScheduledValues(now);
                                         this.humGain.gain.setValueAtTime(this.humGain.gain.value, now);
                                         this.humGain.gain.linearRampToValueAtTime(0.0, now + 0.3);
+
+                                        // Noise gain down
+                                        this.noiseGain.gain.cancelScheduledValues(now);
+                                        this.noiseGain.gain.setValueAtTime(this.noiseGain.gain.value, now);
+                                        this.noiseGain.gain.linearRampToValueAtTime(0.0, now + 0.3);
                                       },
 
                                       update(motion, dt) {
@@ -393,13 +427,11 @@
                                         this.humGain.gain.setTargetAtTime(baseVol + intensityVol, now, 0.05);
 
                                         // OSCILLATORS NEVER CHANGE FREQUENCY (fixed 55Hz / 27.5Hz)
-                                        // Only FILTER moves: 120Hz -> max 370Hz (250Hz range, absolut dumpf)
-                                        this.humFilter.frequency.setTargetAtTime(120 + intensity * 250, now, 0.05);  // Max 370Hz
+                                        // Only FILTER moves: 150Hz -> max 350Hz
+                                        this.humFilter.frequency.setTargetAtTime(150 + intensity * 200, now, 0.05);  // Max 350Hz
 
-                                        // Subtle idle pan
-                                        if (this.panner && this.panner.pan) {
-                                          this.panner.pan.setTargetAtTime(Math.sin(now * 0.15) * 0.1, now, 0.5);
-                                        }
+                                        // NOISE WHOOSH: gain swells with movement (0 -> 0.15)
+                                        this.noiseGain.gain.setTargetAtTime(intensity * 0.15, now, 0.05);
 
                                         // Swing detection
                                         if (motion > 1.0 * sensitivity && now - this.lastSwingTime > 0.18) {
@@ -416,12 +448,11 @@
                                       },
 
                                       triggerSwing(intensity) {
-                                        // Simple swing: just a brief filter sweep + volume bump
+                                        // Simple swing: brief filter sweep + volume bump
                                         if (!audioCtx) return;
                                         const now = audioCtx.currentTime;
                                         const dur = 0.3 + intensity * 0.2;
 
-                                        // Boost filter briefly (adds "whoosh" without new oscillators)
                                         const currentFreq = this.humFilter.frequency.value;
                                         const targetFreq = Math.min(currentFreq + 150 * intensity, 500);
                                         this.humFilter.frequency.cancelScheduledValues(now);
@@ -429,12 +460,17 @@
                                         this.humFilter.frequency.exponentialRampToValueAtTime(targetFreq, now + dur * 0.3);
                                         this.humFilter.frequency.exponentialRampToValueAtTime(currentFreq, now + dur);
 
-                                        // Volume bump
                                         const currentVol = this.humGain.gain.value;
                                         this.humGain.gain.cancelScheduledValues(now);
                                         this.humGain.gain.setValueAtTime(currentVol, now);
                                         this.humGain.gain.linearRampToValueAtTime(Math.min(currentVol + 0.2 * intensity, 0.7), now + 0.02);
                                         this.humGain.gain.exponentialRampToValueAtTime(currentVol, now + dur);
+
+                                        // Noise whoosh boost during swing
+                                        this.noiseGain.gain.cancelScheduledValues(now);
+                                        this.noiseGain.gain.setValueAtTime(this.noiseGain.gain.value, now);
+                                        this.noiseGain.gain.linearRampToValueAtTime(0.25, now + 0.02);
+                                        this.noiseGain.gain.exponentialRampToValueAtTime(this.noiseGain.gain.value, now + dur);
                                       },
 
                                       triggerClash(intensity) {
@@ -452,24 +488,11 @@
 
                                         const noise = audioCtx.createBufferSource();
                                         noise.buffer = buffer;
-                                        const clashGain = audioCtx.createGain();
-                                        clashGain.gain.value = 0;
-
-                                        noise.connect(this.humFilter);  // Through main filter (stays dark!)
-                                        if (this.panner) {
-                                          this.humFilter.disconnect();
-                                          this.humFilter.connect(this.panner);
-                                          this.panner.connect(audioCtx.destination);
-                                        }
-                                        clashGain.connect(this.humFilter); // Actually, let's just use humFilter path
-
-                                        // Simpler: just inject through a temp gain to mainFilter
                                         const tempGain = audioCtx.createGain();
                                         tempGain.gain.setValueAtTime(0.3 * intensity, now);
                                         tempGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
                                         noise.connect(tempGain);
                                         tempGain.connect(this.humFilter);
-
                                         noise.start(now);
                                         setTimeout(() => { noise.stop(); noise.disconnect(); tempGain.disconnect(); }, 200);
                                       },
@@ -478,10 +501,15 @@
                                         [this.humOscA, this.humSubOsc].forEach(osc => {
                                           if (osc) { osc.stop(); osc.disconnect(); }
                                         });
-                                        [this.humGain, this.humFilter, this.panner].forEach(node => {
+                                        if (this.noiseNode) {
+                                          this.noiseNode.stop();
+                                          this.noiseNode.disconnect();
+                                        }
+                                        [this.humGain, this.humFilter, this.noiseFilter, this.noiseGain, this.panner].forEach(node => {
                                           if (node) node.disconnect();
                                         });
                                         this.humOscA = this.humSubOsc = null;
+                                        this.noiseNode = this.noiseFilter = this.noiseGain = null;
                                         this.humGain = this.humFilter = this.panner = null;
                                         this.isActive = false;
                                       }
@@ -875,80 +903,88 @@
     let motionEventCount = 0;
     
     function handleMotion(event) {
-      motionEventCount++;
-      if (motionEventCount <= 3) {
-        console.log('[MotionSounds] devicemotion event:', {
-          acceleration: event.acceleration ? { x: event.acceleration.x, y: event.acceleration.y, z: event.acceleration.z } : null,
-          accelerationIncludingGravity: event.accelerationIncludingGravity ? { x: event.accelerationIncludingGravity.x, y: event.accelerationIncludingGravity.y, z: event.accelerationIncludingGravity.z } : null,
-          rotationRate: event.rotationRate,
-          interval: event.interval
-        });
-      }
-      
-      // Update sensor status display
-      const sensorState = document.getElementById('sensorState');
-      const eventCount = document.getElementById('eventCount');
-      if (sensorState) sensorState.textContent = 'Aktiv';
-      if (eventCount) eventCount.textContent = motionEventCount;
-      
-      if (!audioCtx) return;
-      
-      // Ensure AudioContext is running
-      if (audioCtx.state !== 'running') {
-        audioCtx.resume().catch(console.error);
-        return;
-      }
-      
-      // Try both acceleration properties
-      const accel = event.accelerationIncludingGravity || event.acceleration;
-      if (!accel) {
-        console.warn('[MotionSounds] No acceleration data in event');
-        return;
-      }
-      
-      // Check if values are actually numbers (not null)
-      if (accel.x === null && accel.y === null && accel.z === null) {
-        console.warn('[MotionSounds] Acceleration values are null');
-        return;
-      }
-      
-      const now = performance.now();
-      const dt = (now - lastTime) / 1000;
-      lastTime = now;
-      
-      // Calculate motion magnitude - use 0 if null
-      const x = accel.x ?? 0;
-      const y = accel.y ?? 0;
-      const z = accel.z ?? 0;
-      
-      // High-pass filter to remove gravity
-      const dx = x - lastAccel.x;
-      const dy = y - lastAccel.y;
-      const dz = z - lastAccel.z;
-      
-      const motion = Math.sqrt(dx*dx + dy*dy + dz*dz);
-      
-      lastAccel = { x, y, z };
-      
-      // Update UI
-      motionX.textContent = dx.toFixed(1);
-      motionY.textContent = dy.toFixed(1);
-      motionZ.textContent = dz.toFixed(1);
-      motionTotal.textContent = motion.toFixed(1);
-      
-      // Color coding
-      [motionX, motionY, motionZ, motionTotal].forEach(el => {
-        const val = parseFloat(el.textContent);
-        el.className = 'value ' + (val > 1.5 ? 'high' : val > 0.5 ? 'med' : 'low');
-      });
-      
-      // Store history for drum detection
-      motionHistory.push(motion);
-      if (motionHistory.length > 50) motionHistory.shift();
-      
-      // Update sound engine
-      const engine = soundEngines[currentSound];
-      if (engine.update) engine.update(motion, dt);
+          motionEventCount++;
+          if (motionEventCount <= 3) {
+            console.log('[MotionSounds] devicemotion event:', {
+              acceleration: event.acceleration ? { x: event.acceleration.x, y: event.acceleration.y, z: event.acceleration.z } : null,
+              accelerationIncludingGravity: event.accelerationIncludingGravity ? { x: event.accelerationIncludingGravity.x, y: event.accelerationIncludingGravity.y, z: event.accelerationIncludingGravity.z } : null,
+              rotationRate: event.rotationRate,
+              interval: event.interval
+            });
+          }
+
+          // Update sensor status display
+          const sensorState = document.getElementById('sensorState');
+          const eventCount = document.getElementById('eventCount');
+          if (sensorState) sensorState.textContent = 'Aktiv';
+          if (eventCount) eventCount.textContent = motionEventCount;
+
+          if (!audioCtx) return;
+
+          // Ensure AudioContext is running
+          if (audioCtx.state !== 'running') {
+            audioCtx.resume().catch(console.error);
+            return;
+          }
+
+          // Try both acceleration properties
+          const accel = event.accelerationIncludingGravity || event.acceleration;
+          if (!accel) {
+            console.warn('[MotionSounds] No acceleration data in event');
+            return;
+          }
+
+          // Check if values are actually numbers (not null)
+          if (accel.x === null && accel.y === null && accel.z === null) {
+            console.warn('[MotionSounds] Acceleration values are null');
+            return;
+          }
+
+          const now = performance.now();
+          const dt = (now - lastTime) / 1000;
+          lastTime = now;
+
+          // Calculate motion magnitude - use 0 if null
+          const x = accel.x ?? 0;
+          const y = accel.y ?? 0;
+          const z = accel.z ?? 0;
+
+          // High-pass filter to remove gravity
+          const dx = x - lastAccel.x;
+          const dy = y - lastAccel.y;
+          const dz = z - lastAccel.z;
+
+          const motion = Math.sqrt(dx*dx + dy*dy + dz*dz);
+
+          lastAccel = { x, y, z };
+
+          // Update UI
+          motionX.textContent = dx.toFixed(1);
+          motionY.textContent = dy.toFixed(1);
+          motionZ.textContent = dz.toFixed(1);
+          motionTotal.textContent = motion.toFixed(1);
+
+          // Color coding
+          [motionX, motionY, motionZ, motionTotal].forEach(el => {
+            const val = parseFloat(el.textContent);
+            el.className = 'value ' + (val > 1.5 ? 'high' : val > 0.5 ? 'med' : 'low');
+          });
+
+          // Store history for drum detection
+          motionHistory.push(motion);
+          if (motionHistory.length > 50) motionHistory.shift();
+
+          // --- STEREO PANNING: Device tilt (X-axis) moves sound left/right ---
+          const engine = soundEngines[currentSound];
+          if (engine && engine.panner && engine.panner.pan && accel.x !== undefined) {
+            // X acceleration (tilt left/right) maps to pan (-1 to 1)
+            // accel.x ranges roughly -9.81 to 9.81 (gravity)
+            const panVal = Math.max(-1, Math.min(1, (accel.x || 0) / 9.81));
+            engine.panner.pan.setTargetAtTime(panVal, audioCtx.currentTime, 0.05);
+          }
+
+          // Update sound engine
+          if (engine.update) engine.update(motion, dt);
     }
     
     // Sound selection
