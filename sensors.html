@@ -562,9 +562,9 @@
       <div class="hud-panel">
         <div class="hud-panel-title">
           <span class="sensor-indicator active"></span>
-          Sensor-Oszilloskop (Live-Abtastung: Z-Beschleunigung)
+          Sensor-Oszilloskop (Live-Abtastung: X/Y/Z-Beschleunigung)
         </div>
-        <canvas id="scopeCanvas" class="hud-canvas" aria-label="Live-Sensor-Oszilloskop"></canvas>
+        <canvas id="scopeCanvas" class="hud-canvas" aria-label="Live-Sensor-Oszilloskop X/Y/Z"></canvas>
         <div class="scope-legend">
           <span>−10 m/s²</span>
           <span>0 m/s²</span>
@@ -662,7 +662,8 @@
     // ============ CANVAS OSCILLOSCOPE ============
     const canvas = document.getElementById('scopeCanvas');
     const ctx = canvas.getContext('2d');
-    let historyData = new Array(80).fill(0);
+    // Store all three axes: {x, y, z}
+    let historyData = new Array(80).fill(null).map(() => ({x: 0, y: 0, z: 0}));
     let lastAccelTime = performance.now();
 
     // Fixed-width number formatting to prevent layout shift
@@ -688,8 +689,8 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    function drawScope(val) {
-      historyData.push(val);
+    function drawScope(dataPoint) {
+      historyData.push(dataPoint);
       historyData.shift();
 
       const width = canvas.clientWidth;
@@ -715,28 +716,53 @@
       ctx.lineTo(width, height / 2);
       ctx.stroke();
 
-      // Signal line
-      ctx.strokeStyle = '#06b6d4';
-      ctx.lineWidth = 2;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.beginPath();
+      // Draw all three axes
+      const axes = [
+        { key: 'x', color: '#ef4444', label: 'X' },  // Red
+        { key: 'y', color: '#10b981', label: 'Y' },  // Green
+        { key: 'z', color: '#06b6d4', label: 'Z' },  // Cyan
+      ];
 
-      const step = width / (historyData.length - 1);
-      for (let i = 0; i < historyData.length; i++) {
-        const x = i * step;
-        const y = height / 2 - (historyData[i] * (height / 25));
-        const clampedY = Math.max(2, Math.min(height - 2, y));
-        if (i === 0) ctx.moveTo(x, clampedY);
-        else ctx.lineTo(x, clampedY);
-      }
-      ctx.stroke();
+      const scale = height / 50; // 50 m/s² full scale (±25 from center)
 
-      // Current value dot
-      const lastX = width;
-      const lastY = height / 2 - (historyData[historyData.length - 1] * (height / 25));
-      ctx.fillStyle = '#06b6d4';
-      ctx.beginPath();
+      axes.forEach(axis => {
+        ctx.strokeStyle = axis.color;
+        ctx.lineWidth = 1.5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+
+        const step = width / (historyData.length - 1);
+        for (let i = 0; i < historyData.length; i++) {
+          const x = i * step;
+          const val = historyData[i][axis.key] || 0;
+          const y = height / 2 - (val * scale);
+          const clampedY = Math.max(2, Math.min(height - 2, y));
+          if (i === 0) ctx.moveTo(x, clampedY);
+          else ctx.lineTo(x, clampedY);
+        }
+        ctx.stroke();
+
+        // Current value dot
+        const lastVal = historyData[historyData.length - 1][axis.key] || 0;
+        const lastX = width;
+        const lastY = height / 2 - (lastVal * scale);
+        ctx.fillStyle = axis.color;
+        ctx.beginPath();
+        ctx.arc(lastX, Math.max(4, Math.min(height - 4, lastY)), 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Legend
+      ctx.font = '10px var(--font-mono)';
+      ctx.textBaseline = 'top';
+      axes.forEach((axis, i) => {
+        const lastVal = historyData[historyData.length - 1][axis.key] || 0;
+        const lastY = height / 2 - (lastVal * scale);
+        ctx.fillStyle = axis.color;
+        ctx.fillText(`${axis.label}: ${fmt(lastVal, 1, 6)}`, 4, 4 + i * 14);
+      });
+    }
       ctx.arc(lastX, Math.max(4, Math.min(height - 4, lastY)), 4, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = '#fff';
@@ -925,7 +951,7 @@
           document.getElementById('valAccelY').textContent = fmt(acc.y || 0);
           document.getElementById('valAccelZ').textContent = fmt(acc.z || 0);
           document.getElementById('valAccelInterval').textContent = fmtInt(interval) + ' ms';
-          drawScope(acc.z || 0);
+          drawScope({x: acc.x || 0, y: acc.y || 0, z: acc.z || 0});
         }
 
         if (accG) {
