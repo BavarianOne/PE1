@@ -516,12 +516,12 @@
                                   this.humOscB.frequency.setTargetAtTime(56.5 + pitchShift * 1.027, now, 0.03);  // Keep detune ratio
                                   this.humSubOsc.frequency.setTargetAtTime(this.baseFreq * 0.5 + pitchShift * 0.5, now, 0.03);
 
-                                  // Filter opens up with intensity (brighter when moving) - max ~2000Hz
-                                  this.humFilter.frequency.setTargetAtTime(300 + intensity * 1700, now, 0.03);
+                                  // Filter opens up with intensity (brighter when moving) - max ~1500Hz (vocal range)
+                                  this.humFilter.frequency.setTargetAtTime(300 + intensity * 1200, now, 0.03);
                                   // Q stays high (12) for the vocal scream character
 
-                                  // Noise layer: filter opens + volume up with motion
-                                  this.noiseFilter.frequency.setTargetAtTime(400 + intensity * 2000, now, 0.03);
+                                  // Noise layer: filter opens + volume up with motion (max ~1200Hz, no piercing highs)
+                                  this.noiseFilter.frequency.setTargetAtTime(400 + intensity * 800, now, 0.03);
                                   this.noiseGain.gain.setTargetAtTime(0.03 + intensity * 0.12, now, 0.03);
 
                                   // Stereo panning - subtle idle auto-pan for width
@@ -565,12 +565,12 @@
          
                                   // Bandpass filter for that "whoosh" character
                                   swingFilter.type = 'bandpass';
-                                  swingFilter.frequency.value = 450 + intensity * 700;
+                                  swingFilter.frequency.value = 400 + intensity * 500;  // Max 900Hz
                                   swingFilter.Q.value = 4.5;
 
-                                  // Lowpass for body
+                                  // Lowpass for body - keep it dark, no high piercing tones
                                   swingFilter2.type = 'lowpass';
-                                  swingFilter2.frequency.value = 1600 + intensity * 1400;
+                                  swingFilter2.frequency.value = 1200 + intensity * 600;  // Max 1800Hz
                                   swingFilter2.Q.value = 2;
 
                                   // Chain: oscillators -> bandpass -> lowpass -> gain -> destination
@@ -592,8 +592,8 @@
                                   swingOscA.frequency.exponentialRampToValueAtTime(endFreq, now + dur);
                                   swingOscB.frequency.exponentialRampToValueAtTime(endFreq * 1.014, now + dur);
 
-                                  // Filter sweep - opens then closes
-                                  swingFilter.frequency.exponentialRampToValueAtTime(900 + intensity * 500, now + dur * 0.3);
+                                  // Filter sweep - opens then closes (stay in vocal range)
+                                  swingFilter.frequency.exponentialRampToValueAtTime(800 + intensity * 400, now + dur * 0.3);  // Max 1200Hz
                                   swingFilter.frequency.exponentialRampToValueAtTime(160, now + dur);
                                   swingFilter.Q.linearRampToValueAtTime(6, now + dur * 0.2);
                                   swingFilter.Q.linearRampToValueAtTime(3, now + dur);
@@ -644,17 +644,17 @@
                                   const noise = audioCtx.createBufferSource();
                                   noise.buffer = buffer;
 
-                                  // Resonant bandpass for metallic "clang"
+                                  // Resonant bandpass for metallic "clang" (lower, throatier)
                                   const clashFilter = audioCtx.createBiquadFilter();
                                   clashFilter.type = 'bandpass';
-                                  clashFilter.frequency.value = 1800 + intensity * 1200;
-                                  clashFilter.Q.value = 12;
+                                  clashFilter.frequency.value = 1000 + intensity * 600;  // Max 1600Hz
+                                  clashFilter.Q.value = 10;
 
-                                  // Second resonance for harmonic ring
+                                  // Second resonance for harmonic ring (vocal formant range)
                                   const ringFilter = audioCtx.createBiquadFilter();
                                   ringFilter.type = 'peak';
-                                  ringFilter.frequency.value = 3200;
-                                  ringFilter.Q.value = 20;
+                                  ringFilter.frequency.value = 1800;  // F2/F3 formant area
+                                  ringFilter.Q.value = 15;
 
                                   const clashGain = audioCtx.createGain();
                                   const ringGain = audioCtx.createGain();
@@ -668,10 +668,10 @@
                                     clashGain.connect(audioCtx.destination);
                                   }
 
-                                  // Ring oscillator (pure sine that rings out)
+                                  // Ring oscillator (pure sine that rings out) - lower pitch
                                   const ringOsc = audioCtx.createOscillator();
                                   ringOsc.type = 'sine';
-                                  ringOsc.frequency.value = 2400 + Math.random() * 800;  // Random clash pitch
+                                  ringOsc.frequency.value = 1200 + Math.random() * 400;  // 1200-1600Hz
                                   if (this.panner) {
                                     ringOsc.connect(this.panner);
                                   } else {
