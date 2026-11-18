@@ -999,9 +999,27 @@
         const testSoundBtn = document.getElementById('testSoundBtn');
         testSoundBtn.addEventListener('click', async () => {
           await initAudio();
+          
+          // Simple direct beep test - bypasses engine entirely
+          if (audioCtx && audioCtx.state === 'running') {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = 440; // A4
+            gain.gain.value = 0;
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            gain.gain.linearRampToValueAtTarget(0.3, audioCtx.currentTime + 0.01);
+            gain.gain.exponentialRampToValueAtTarget(0.001, audioCtx.currentTime + 0.5);
+            osc.stop(audioCtx.currentTime + 0.6);
+            logEvent('test-beep', { freq: 440, duration: 0.5 });
+          }
+          
+          // Also test the current engine
           const engine = soundEngines[currentSound];
+          if (engine.init) engine.init(audioCtx); // Ensure initialized
           if (engine.update) {
-            // Trigger a strong motion event to test all sound types
             engine.update(3.0, 0.05);
             logEvent('test-sound', { sound: currentSound, motion: 3.0 });
           }
