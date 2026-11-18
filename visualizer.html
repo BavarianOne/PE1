@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0099ff">
+  <meta name="description" content="Audio Visualizer - PE1 Progressive Web App">
+  <title>Visualizer | PE1</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+  <link rel="stylesheet" href="styles.css">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="PE1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Azeret+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    .visualizer-container { position: relative; overflow: hidden; background: var(--color-surface); aspect-ratio: 1; min-height: 300px; border-radius: var(--radius-lg); border: 1px solid var(--color-border); box-shadow: var(--shadow-ring), var(--shadow-card); }
+    .visualizer-container canvas { width: 100%; height: 100%; display: block; }
+    .canvas-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--color-surface); z-index: 10; transition: opacity var(--duration-normal), visibility var(--duration-normal); }
+    .canvas-overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    .overlay-content { text-align: center; padding: var(--space-6); color: var(--color-text-muted); }
+    .overlay-content svg { color: var(--color-accent); margin-bottom: var(--space-4); animation: float 3s var(--ease-out) infinite; }
+    .overlay-content p { margin-bottom: var(--space-2); font-size: var(--text-body); }
+    .overlay-content strong { color: var(--color-text); }
+    .overlay-content .hint { font-size: var(--text-caption); color: var(--color-text-subtle); }
+    .control-panel { padding: var(--space-5); }
+    .control-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4); flex-wrap: wrap; gap: var(--space-2); }
+    .control-buttons { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-5); }
+    .visualizer-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-4); }
+    .option-group { display: flex; flex-direction: column; gap: var(--space-2); }
+    .option-group label { font-size: var(--text-caption); color: var(--color-text-muted); font-weight: 500; }
+    .option-group select, .option-group input[type="range"] { width: 100%; }
+    .slider-row { display: flex; align-items: center; gap: var(--space-3); }
+    .slider-row label { min-width: 70px; font-size: var(--text-caption); color: var(--color-text-muted); }
+    .slider-row input[type="range"] { flex: 1; accent-color: var(--color-accent); }
+    .slider-row output { min-width: 40px; font-family: var(--font-mono); font-size: var(--text-caption); }
+    .audio-info { padding: var(--space-4); }
+    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-4); }
+    .info-item { display: flex; flex-direction: column; gap: var(--space-1); }
+    .info-label { font-size: var(--text-caption); color: var(--color-text-muted); }
+    .info-value { font-family: var(--font-mono); font-size: var(--text-body); color: var(--color-text); }
+    .volume-meter { display: flex; flex-direction: column; gap: var(--space-2); }
+    .volume-meter label { display: flex; justify-content: space-between; align-items: center; font-size: var(--text-sm); color: var(--color-text-muted); }
+    .meter-bar { height: 8px; background: var(--color-border); border-radius: 4px; overflow: hidden; }
+    .meter-fill { height: 100%; background: linear-gradient(90deg, var(--color-accent), var(--color-accent-glow)); border-radius: 4px; transition: width 50ms linear; width: 0%; }
+    .frequency-legend { padding: var(--space-4); }
+    .frequency-legend h4 { margin-bottom: var(--space-3); font-size: var(--text-sm); color: var(--color-text-muted); }
+    .legend-bars { display: flex; flex-direction: column; gap: var(--space-2); }
+    .legend-bar { display: flex; align-items: center; gap: var(--space-3); font-size: var(--text-caption); color: var(--color-text-muted); }
+    .legend-color { width: 8px; height: 8px; border-radius: 2px; background: var(--color-accent); transition: width 100ms ease-out; }
+    .debug-panel { position: fixed; bottom: 80px; left: var(--space-4); right: var(--space-4); max-width: none; z-index: 100; max-height: 300px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-4); font-family: var(--font-mono); font-size: var(--text-caption); overflow: auto; }
+    .debug-panel[hidden] { display: none; }
+    .debug-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3); }
+    .debug-entry { padding: 2px 0; color: var(--color-text-muted); border-bottom: 1px solid var(--color-border); }
+    .debug-entry:last-child { border-bottom: none; }
+    .debug-time { color: var(--color-text-subtle); margin-right: var(--space-2); }
+    .debug-source { color: var(--color-accent); font-weight: 600; margin-right: var(--space-2); }
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+  </style>
+</head>
+<body>
+  <header class="nav-top">
+    <div class="nav-top-inner">
+      <a href="index.html" class="nav-brand" aria-label="PE1 Startseite">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+          <line x1="12" y1="22.08" x2="12" y2="12"/>
+        </svg>
+        PE1
+      </a>
+      <nav class="nav-links" aria-label="Hauptnavigation">
+        <a href="index.html" class="nav-link">Start</a>
+        <a href="compass.html" class="nav-link">Kompass</a>
+        <a href="visualizer.html" class="nav-link active" aria-current="page">Visualizer</a>
+        <a href="motion-sounds.html" class="nav-link">Motion Sounds</a>
+        <a href="about.html" class="nav-link">Über</a>
+        <a href="contact.html" class="nav-link">Kontakt</a>
+      </nav>
+      <button class="theme-toggle" id="themeToggle" aria-label="Design-Modus wechseln" title="Theme wechseln">
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1" x2="12" y2="3"/>
+          <line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/>
+          <line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      <section class="section" aria-labelledby="visualizer-title">
+        <h2 id="visualizer-title" class="sr-only">Audio Visualizer</h2>
+
+        <div class="control-panel card card-ring slide-up stagger-1">
+          <div class="control-header">
+            <h3>Audio Visualizer</h3>
+            <span class="status-indicator" id="statusIndicator">
+              <span class="status-dot" id="statusDot"></span>
+              <span id="statusText">Bereit</span>
+            </span>
+          </div>
+
+          <div class="control-buttons">
+            <button class="btn btn-primary touch-target-lg haptic-tap" id="startButton" aria-label="Mikrofon starten">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-6-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="22"/>
+              </svg>
+              <span>Mikrofon starten</span>
+            </button>
+            <button class="btn btn-frosted touch-target-lg haptic-tap" id="fileBtn" aria-label="Audio-Datei hochladen">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <span>Datei wählen</span>
+            </button>
+            <input type="file" id="audioFile" accept="audio/*" hidden>
+          </div>
+
+          <div class="visualizer-options">
+            <div class="option-group">
+              <label for="visualizerMode">Modus:</label>
+              <select id="visualizerMode" class="btn btn-frosted touch-target">
+                <option value="circular">🔮 Kreisförmig (Neon Ring)</option>
+                <option value="bars">📊 Balken-Spektrum</option>
+                <option value="wave">〰️ Wellenform</option>
+                <option value="particles">✨ Partikel</option>
+              </select>
+            </div>
+            <div class="option-group">
+              <label for="colorScheme">Farbschema:</label>
+              <select id="colorScheme" class="btn btn-frosted touch-target">
+                <option value="neon">💙 Neon Blau</option>
+                <option value="rainbow">🌈 Regenbogen</option>
+                <option value="fire">🔥 Feuer</option>
+                <option value="ocean">🌊 Ozean</option>
+                <option value="matrix">💚 Matrix</option>
+              </select>
+            </div>
+            <div class="option-group">
+              <label for="sensitivity">Empfindlichkeit:</label>
+              <input type="range" id="sensitivity" min="0.1" max="3" step="0.1" value="1" class="slider">
+              <output id="sensitivityValue">1.0x</output>
+            </div>
+            <div class="option-group">
+              <label for="smoothing">Glättung:</label>
+              <input type="range" id="smoothing" min="0" max="0.9" step="0.05" value="0.8" class="slider">
+              <output id="smoothingValue">0.80</output>
+            </div>
+          </div>
+        </div>
+
+        <div class="visualizer-container card card-ring slide-up stagger-2" id="visualizerContainer">
+          <canvas id="visualizerCanvas" aria-label="Audio Visualisierung"></canvas>
+          <div class="canvas-overlay" id="canvasOverlay">
+            <div class="overlay-content">
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-6-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="22"/>
+              </svg>
+              <p>Klicke auf <strong>Mikrofon starten</strong> oder wähle eine <strong>Audio-Datei</strong></p>
+              <p class="hint">Unterstützt: MP3, WAV, OGG, M4A, FLAC</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="audio-info card card-ring slide-up stagger-3" id="audioInfo" hidden>
+          <div class="info-grid">
+            <div class="info-item"><span class="info-label">Quelle</span><span class="info-value" id="sourceInfo">—</span></div>
+            <div class="info-item"><span class="info-label">Sample Rate</span><span class="info-value" id="sampleRateInfo">—</span></div>
+            <div class="info-item"><span class="info-label">Kanäle</span><span class="info-value" id="channelsInfo">—</span></div>
+            <div class="info-item"><span class="info-label">Dauer</span><span class="info-value" id="durationInfo">—</span></div>
+            <div class="info-item"><span class="info-label">Lautstärke</span><span class="info-value" id="volumeInfo">—</span></div>
+            <div class="info-item"><span class="info-label">Peak</span><span class="info-value" id="peakInfo">—</span></div>
+          </div>
+          <div class="volume-meter">
+            <label>Lautstärke: <output id="volumeOutput">0%</output></label>
+            <div class="meter-bar"><div class="meter-fill" id="meterFill"></div></div>
+          </div>
+        </div>
+
+        <div class="frequency-legend card card-ring slide-up stagger-3" id="frequencyLegend" hidden>
+          <h4>Frequenzbereiche</h4>
+          <div class="legend-bars">
+            <div class="legend-bar"><span class="legend-color" style="--i:0"></span><span>Sub-Bass (20-60 Hz)</span></div>
+            <div class="legend-bar"><span class="legend-color" style="--i:1"></span><span>Bass (60-250 Hz)</span></div>
+            <div class="legend-bar"><span class="legend-color" style="--i:2"></span><span>Low-Mid (250-500 Hz)</span></div>
+            <div class="legend-bar"><span class="legend-color" style="--i:3"></span><span>Mid (500-2k Hz)</span></div>
+            <div class="legend-bar"><span class="legend-color" style="--i:4"></span><span>High-Mid (2-4k Hz)</span></div>
+            <div class="legend-bar"><span class="legend-color" style="--i:5"></span><span>Presence (4-6k Hz)</span></div>
+            <div class="legend-bar"><span class="legend-color" style="--i:6"></span><span>Brilliance (6-20k Hz)</span></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div class="debug-panel card card-ring" id="debugPanel" hidden style="position: fixed; bottom: 80px; left: var(--space-4); right: var(--space-4); max-width: none; z-index: 100; max-height: 300px;">
+    <div class="debug-header">
+      <h4 style="margin: 0;">Debug Panel</h4>
+      <button class="btn btn-ghost touch-target" id="clearDebugBtn" style="padding: var(--space-1) var(--space-2); font-size: var(--text-caption);">Clear</button>
+    </div>
+    <div class="slider-row" style="margin-bottom: var(--space-3);">
+      <label for="smoothingSlider">Glättung:</label>
+      <input type="range" id="smoothingSlider" min="0" max="0.9" step="0.05" value="0.8" class="slider" style="flex: 1;">
+      <output id="smoothingValue" style="min-width: 40px; font-family: var(--font-mono);">0.80</output>
+    </div>
+    <div id="debugContent" style="max-height: 220px; overflow: auto; font-family: var(--font-mono); font-size: var(--text-caption);"></div>
+  </div>
+
+  <nav class="nav-bottom" aria-label="Hauptnavigation">
+    <a href="index.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        <polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+      <span>Start</span>
+    </a>
+    <a href="compass.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <polygon points="12 2 15 8 12 8"/>
+        <polygon points="12 22 15 16 12 16"/>
+        <polygon points="2 12 8 15 8 12"/>
+        <polygon points="22 12 16 15 16 12"/>
+      </svg>
+      <span>Kompass</span>
+    </a>
+    <a href="visualizer.html" class="nav-item active" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polygon points="17 3 5 3 3 9 5 15 17 15 19 9"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+        <line x1="5" y1="9" x2="17" y2="9"/>
+      </svg>
+      <span>Visualizer</span>
+    </a>
+    <a href="motion-sounds.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M11 5L6 9H2v14h20V9H13L11 5z"/>
+        <path d="M19 3l-1 1"/>
+        <path d="M21 3l-3 3 3 3"/>
+        <path d="M23 9V5l-2 2"/>
+      </svg>
+      <span>Sounds</span>
+    </a>
+    <a href="about.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 16v-4"/>
+        <path d="M12 8h.01"/>
+      </svg>
+      <span>Über</span>
+    </a>
+    <a href="contact.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+        <circle cx="12" cy="10" r="3"/>
+      </svg>
+      <span>Kontakt</span>
+    </a>
+  </nav>
+
+  <footer><p>&copy; 2026 PE1. <a href="https://github.com/BavarianOne/PE1" style="color: var(--color-accent); text-decoration: none;">GitHub</a></p></footer>
+
+  <script src="app.js"></script>
+  <script>
+    // ============================================
+    // AUDIO VISUALIZER - SELF-CONTAINED IMPLEMENTATION
+    // ============================================
+
+    const COLOR_SCHEMES = {
+      neon: { primary: '#0099ff', secondary: '#00ffff', accent: '#ff00ff', background: 'rgba(0,0,0,0.9)', glow: '#0099ff' },
+      rainbow: { primary: '#ff0000', secondary: '#ffff00', accent: '#00ff00', background: 'rgba(0,0,0,0.9)', glow: '#ffffff' },
+      fire: { primary: '#ff3300', secondary: '#ff9900', accent: '#ffff00', background: 'rgba(20,0,0,0.9)', glow: '#ff6600' },
+      ocean: { primary: '#0066ff', secondary: '#00ccff', accent: '#00ffcc', background: 'rgba(0,10,30,0.9)', glow: '#00ffff' },
+      matrix: { primary: '#00ff00', secondary: '#00aa00', accent: '#88ff88', background: 'rgba(0,20,0,0.9)', glow: '#00ff00' }
+    };
+
+    const FREQUENCY_BANDS = [
+      { name: 'Sub-Bass', min: 20, max: 60 },
+      { name: 'Bass', min: 60, max: 250 },
+      { name: 'Low-Mid', min: 250, max: 500 },
+      { name: 'Mid', min: 500, max: 2000 },
+      { name: 'High-Mid', min: 2000, max: 4000 },
+      { name: 'Presence', min: 4000, max: 6000 },
+      { name: 'Brilliance', min: 6000, max: 20000 }
+    ];
+
+    let audioContext = null;
+    let analyser = null;
+    let source = null;
+    let dataArray = null;
+    let smoothedData = null;
+    let bufferLength = 0;
+    let animationId = null;
+    let isRunning = false;
+    let mediaStream = null;
+    let mode = 'circular';
+    let colorScheme = 'neon';
+    let sensitivity = 1;
+    let smoothing = 0.8;
+    let particles = null;
+    let debugLog = [];
+    let debugExpanded = false;
+    let _animateLogged = false;
+    let _drawLogged = false;
+
+    const canvas = document.getElementById('visualizerCanvas');
+    const ctx = canvas.getContext('2d');
+    const overlay = document.getElementById('canvasOverlay');
+    const startButton = document.getElementById('startButton');
+    const fileBtn = document.getElementById('fileBtn');
+    const audioFile = document.getElementById('audioFile');
+    const modeSelect = document.getElementById('visualizerMode');
+    const colorSelect = document.getElementById('colorScheme');
+    const sensSlider = document.getElementById('sensitivity');
+    const sensValue = document.getElementById('sensitivityValue');
+    const smoothSlider = document.getElementById('smoothing');
+    const smoothValue = document.getElementById('smoothingValue');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const statusIndicator = document.getElementById('statusIndicator');
+    const audioInfo = document.getElementById('audioInfo');
+    const freqLegend = document.getElementById('frequencyLegend');
+    const volumeOutput = document.getElementById('volumeOutput');
+    const meterFill = document.getElementById('meterFill');
+    const peakInfo = document.getElementById('peakInfo');
+    const sourceInfo = document.getElementById('sourceInfo');
+    const srInfo = document.getElementById('sampleRateInfo');
+    const chInfo = document.getElementById('channelsInfo');
+    const durInfo = document.getElementById('durationInfo');
+    const debugPanel = document.getElementById('debugPanel');
+    const debugContent = document.getElementById('debugContent');
+    const debugToggleBtn = document.getElementById('debugToggleBtn');
+    const clearDebugBtn = document.getElementById('clearDebugBtn');
+    const smoothingSlider = document.getElementById('smoothingSlider');
+    const smoothingValue = document.getElementById('smoothingValue');
+
+    function logDebug(source, data) {
+      const entry = { time: new Date().toLocaleTimeString(), source, data };
+      debugLog.push(entry);
+      if (debugLog.length > 100) debugLog.shift();
+      renderDebug();
+      console.log('DEBUG LOG:', source, data);
+    }
+
+    function renderDebug() {
+      if (!debugContent) return;
+      debugContent.innerHTML = debugLog.map(e =>
+        `<div class="debug-entry"><span class="debug-time">[${e.time}]</span> <span class="debug-source">${e.source}</span> ${JSON.stringify(e.data)}</div>`
+      ).join('');
+      debugContent.scrollTop = debugContent.scrollHeight;
+    }
+
+    function updateStatus(text, type) {
+      if (statusText) statusText.textContent = text;
+      if (statusDot) statusDot.className = 'status-dot';
+      if (statusIndicator) statusIndicator.className = 'status-indicator';
+      switch (type) {
+        case 'active': statusDot?.classList.add('active'); statusIndicator?.classList.add('active'); break;
+        case 'loading': statusDot?.classList.add('loading'); statusIndicator?.classList.add('loading'); break;
+        case 'error': statusDot?.classList.add('error'); statusIndicator?.classList.add('error'); break;
+      }
+    }
+
+    async function ensureAudioContextResumed() {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        logDebug('AudioContext', { action: 'created', state: audioContext.state });
+      }
+      if (audioContext.state === 'suspended') {
+        try {
+          await audioContext.resume();
+          logDebug('AudioContext', { action: 'resumed', state: audioContext.state });
+          console.log('AudioContext resumed:', audioContext.state);
+        } catch (e) {
+          logDebug('AudioContext', { action: 'resume_failed', error: e.message });
+          console.error('Failed to resume AudioContext:', e);
+        }
+      }
+      return audioContext;
+    }
+
+    function resizeCanvas() {
+      const container = document.getElementById('visualizerContainer');
+      if (!container || !canvas) return;
+      const rect = container.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      canvas.style.width = rect.width + 'px';
+      canvas.style.height = rect.height + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      drawIdle();
+    }
+
+    function drawIdle() {
+      if (!ctx || !canvas) return;
+      const width = canvas.width / (window.devicePixelRatio || 1);
+      const height = canvas.height / (window.devicePixelRatio || 1);
+      const cx = width / 2, cy = height / 2;
+      ctx.clearRect(0, 0, width, height);
+      const time = Date.now() * 0.001;
+      const scheme = COLOR_SCHEMES[colorScheme];
+      for (let ring = 0; ring < 3; ring++) {
+        ctx.beginPath();
+        const r = 50 + ring * 40 + Math.sin(time + ring) * 5;
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.strokeStyle = `${scheme.primary}22`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+      ctx.beginPath();
+      ctx.arc(cx, cy, 15 + Math.sin(time * 2) * 5, 0, Math.PI * 2);
+      const pulseGradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, 30);
+      pulseGradient.addColorStop(0, scheme.primary + '44');
+      pulseGradient.addColorStop(1, 'transparent');
+      ctx.fillStyle = pulseGradient;
+      ctx.fill();
+    }
+
+    function showVisualizer() {
+      console.log('>>> showVisualizer CALLED');
+      logDebug('showVisualizer', { action: 'called' });
+      if (overlay) {
+        overlay.hidden = true;
+        overlay.classList.add('hidden');
+        console.log('>>> overlay.hidden = true, classList.add(hidden)');
+        logDebug('showVisualizer', { action: 'overlay_hidden' });
+      }
+      if (audioInfo) audioInfo.hidden = false;
+      if (freqLegend) freqLegend.hidden = false;
+    }
+
+    function hideVisualizer() {
+      if (overlay) {
+        overlay.hidden = false;
+        overlay.classList.remove('hidden');
+      }
+      if (audioInfo) audioInfo.hidden = true;
+      if (freqLegend) freqLegend.hidden = true;
+    }
+
+    async function initAudioContextFromStream(stream) {
+      if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioContext.state === 'suspended') await audioContext.resume();
+
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = smoothing;
+      analyser.minDecibels = -90;
+      analyser.maxDecibels = -10;
+
+      bufferLength = analyser.frequencyBinCount;
+      dataArray = new Uint8Array(bufferLength);
+      smoothedData = new Float32Array(bufferLength);
+
+      source = audioContext.createMediaStreamSource(stream);
+      source.connect(analyser);
+    }
+
+    async function initAudioContextFromSource(src) {
+      if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioContext.state === 'suspended') await audioContext.resume();
+
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = smoothing;
+      analyser.minDecibels = -90;
+      analyser.maxDecibels = -10;
+
+      bufferLength = analyser.frequencyBinCount;
+      dataArray = new Uint8Array(bufferLength);
+      smoothedData = new Float32Array(bufferLength);
+
+      source = src;
+      source.connect(analyser);
+    }
+
+    async function startMicrophone() {
+      try {
+        updateStatus('Mikrofon wird angefordert...', 'loading');
+        logDebug('getUserMedia', { action: 'requesting', secureContext: window.isSecureContext });
+        console.log('Requesting microphone access...');
+
+        if (!window.isSecureContext) {
+          logDebug('getUserMedia', { action: 'failed', reason: 'not_secure_context' });
+          updateStatus('HTTPS erforderlich für Mikrofon', 'error');
+          alert('Mikrofonzugriff erfordert HTTPS. Bitte über https:// aufrufen oder localhost verwenden.');
+          return;
+        }
+
+        await ensureAudioContextResumed();
+
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+        });
+
+        logDebug('getUserMedia', { action: 'granted', tracks: mediaStream.getTracks().length });
+        console.log('Microphone access granted');
+
+        await initAudioContextFromStream(mediaStream);
+        updateStatus('Mikrofon aktiv 🎤', 'active');
+
+        startButton.innerHTML = `
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-6-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="22"/>
+          </svg>
+          <span>Mikrofon stoppen
+        `;
+        startButton.onclick = stopAudio;
+        startButton.classList.add('active');
+
+        showVisualizer();
+        startVisualization();
+
+      } catch (err) {
+        logDebug('getUserMedia', { action: 'error', name: err.name, message: err.message });
+        console.error('Microphone error:', err);
+        updateStatus('Mikrofon-Zugriff verweigert', 'error');
+        let msg = 'Mikrofon-Zugriff verweigert.';
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          msg += '\n\nBitte in Browser-Einstellungen Mikrofon-Berechtigung für diese Seite erlauben und Seite neu laden.';
+        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+          msg += '\n\nKein Mikrofon gefunden.';
+        } else if (err.name === 'NotReadableError') {
+          msg += '\n\nMikrofon wird von anderer Anwendung verwendet.';
+        } else {
+          msg += `\n\nFehler: ${err.message}`;
+        }
+        alert(msg);
+      }
+    }
+
+    async function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      if (!file.type.startsWith('audio/')) {
+        alert('Bitte eine Audio-Datei wählen (MP3, WAV, OGG, M4A, FLAC)');
+        return;
+      }
+
+      stopAudio();
+
+      try {
+        updateStatus('Datei wird geladen...', 'loading');
+        await ensureAudioContextResumed();
+
+        const arrayBuffer = await file.arrayBuffer();
+        const fileAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+        await fileAudioContext.resume();
+        const audioBuffer = await fileAudioContext.decodeAudioData(arrayBuffer);
+
+        audioContext = fileAudioContext;
+        source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.loop = true;
+
+        await initAudioContextFromSource(source);
+
+        source.connect(audioContext.destination);
+        source.start(0);
+        isRunning = true;
+
+        updateStatus(`Wiedergabe: ${file.name}`, 'active');
+
+        startButton.innerHTML = `
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="6" y="4" width="4" height="16"/>
+            <rect x="14" y="4" width="4" height="16"/>
+          </svg>
+          <span>Wiedergabe stoppen
+        `;
+        startButton.onclick = stopAudio;
+        startButton.classList.add('active');
+
+        const duration = audioBuffer.duration;
+        const mins = Math.floor(duration / 60);
+        const secs = Math.floor(duration % 60);
+        if (sourceInfo) sourceInfo.textContent = file.name;
+        if (srInfo) srInfo.textContent = `${audioContext.sampleRate / 1000} kHz`;
+        if (chInfo) chInfo.textContent = audioBuffer.numberOfChannels;
+        if (durInfo) durInfo.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+
+        showVisualizer();
+        startVisualization();
+
+      } catch (err) {
+        console.error('File upload error:', err);
+        updateStatus('Fehler beim Laden', 'error');
+        alert('Fehler beim Laden der Audio-Datei.');
+      }
+    }
+
+    function stopAudio() {
+      logDebug('Audio', { action: 'stop' });
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+        mediaStream = null;
+      }
+      if (source) {
+        source.onended = null;
+        source.stop();
+        source.disconnect();
+        source = null;
+      }
+      if (audioContext && audioContext.state !== 'closed') {
+        audioContext.close();
+        audioContext = null;
+      }
+      analyser = null;
+      isRunning = false;
+
+      updateStatus('Gestoppt', 'inactive');
+      startButton.innerHTML = `
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-6-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="22"/>
+        </svg>
+        <span>Mikrofon starten
+      `;
+      startButton.onclick = startMicrophone;
+      startButton.classList.remove('active');
+
+      hideVisualizer();
+
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+      }
+      drawIdle();
+    }
+
+    function startVisualization() {
+      if (animationId) cancelAnimationFrame(animationId);
+      isRunning = true;
+      _animateLogged = false;
+      _drawLogged = false;
+      logDebug('startVisualization', { action: 'called' });
+      animate();
+    }
+
+    function animate() {
+      if (!isRunning || !analyser || !audioContext) {
+        logDebug('animate', { action: 'stopped', reason: 'not_running_or_missing_context' });
+        animationId = null;
+        return;
+      }
+
+      if (!_animateLogged) {
+        _animateLogged = true;
+        logDebug('animate', { action: 'started', mode, bufferLength });
+      }
+
+      if (audioContext.state !== 'running') {
+        logDebug('animate', { action: 'audioContext_not_running', state: audioContext.state });
+        audioContext.resume().catch(console.error);
+      }
+
+      try {
+        analyser.getByteFrequencyData(dataArray);
+
+        if (smoothedData && dataArray && bufferLength) {
+          for (let i = 0; i < bufferLength; i++) {
+            smoothedData[i] = smoothedData[i] * smoothing + dataArray[i] * (1 - smoothing);
+          }
+        }
+
+        drawVisualizer();
+        updateAudioInfo();
+
+      } catch (e) {
+        logDebug('animate', { action: 'error', error: e.message });
+        console.error('Error in animate loop:', e);
+      }
+
+      if (isRunning) {
+        animationId = requestAnimationFrame(animate);
+      }
+    }
+
+    function drawVisualizer() {
+      console.log('>>> drawVisualizer CALLED');
+      if (!ctx || !canvas) {
+        console.log('>>> drawVisualizer SKIPPED: no ctx or canvas');
+        logDebug('drawVisualizer', { action: 'skipped', reason: 'no_ctx_or_canvas' });
+        return;
+      }
+
+      const width = canvas.width / (window.devicePixelRatio || 1);
+      const height = canvas.height / (window.devicePixelRatio || 1);
+      const cx = width / 2, cy = height / 2;
+      const radius = Math.min(cx, cy) - 20;
+
+      console.log('>>> drawVisualizer canvas:', width, height, 'radius:', radius);
+
+      if (!_drawLogged) {
+        _drawLogged = true;
+        logDebug('drawVisualizer', { action: 'started', width, height, radius, mode, hasData: !!smoothedData });
+      }
+
+      ctx.clearRect(0, 0, width, height);
+
+      const scheme = COLOR_SCHEMES[colorScheme];
+      ctx.fillStyle = scheme.background;
+      ctx.fillRect(0, 0, width, height);
+
+      const data = smoothedData;
+
+      try {
+        switch (mode) {
+          case 'circular': drawCircular(cx, cy, radius, data, scheme); break;
+          case 'bars': drawBars(cx, cy, radius, data, scheme); break;
+          case 'wave': drawWave(cx, cy, radius, data, scheme); break;
+          case 'particles': drawParticles(cx, cy, radius, data, scheme); break;
+        }
+        console.log('>>> drawVisualizer mode rendered:', mode);
+      } catch (e) {
+        console.log('>>> drawVisualizer ERROR:', e);
+        logDebug('drawVisualizer', { action: 'error', error: e.message });
+        console.error('Error in drawVisualizer:', e);
+      }
+
+      drawCenterInfo(cx, cy, scheme);
+    }
+
+    function drawCircular(cx, cy, radius, data, scheme) {
+      if (!data) return;
+      const numBars = 128;
+      const slice = Math.PI * 2 / numBars;
+      const maxFreqIndex = Math.floor((8000 / (audioContext?.sampleRate / 2 || 12000)) * bufferLength);
+      const step = Math.max(1, Math.floor(maxFreqIndex / numBars));
+
+      for (let ring = 0; ring < 3; ring++) {
+        const ringRadius = Math.max(20, radius - ring * 50);
+        ctx.beginPath();
+        for (let i = 0; i < numBars; i++) {
+          const dataIndex = Math.min(i * step, maxFreqIndex - 1);
+          const value = (data[dataIndex] || 0) / 255 * sensitivity;
+          const barHeight = value * (radius * 0.6);
+          const angle = i * slice - Math.PI / 2;
+          const r = ringRadius + barHeight;
+          const x = cx + Math.cos(angle) * r;
+          const y = cy + Math.sin(angle) * r;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+
+        const gradient = ctx.createRadialGradient(cx, cy, ringRadius * 0.5, cx, cy, ringRadius + radius * 0.6);
+        const hue = getHueForScheme(ring);
+        gradient.addColorStop(0, `hsla(${hue}, 80%, 60%, 0.3)`);
+        gradient.addColorStop(0.5, `hsla(${hue}, 100%, 50%, 0.6)`);
+        gradient.addColorStop(1, `hsla(${(hue + 60) % 360}, 100%, 70%, 0.2)`);
+
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = 3 - ring;
+        ctx.shadowColor = scheme.glow;
+        ctx.shadowBlur = 15 - ring * 5;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius * 0.15, 0, Math.PI * 2);
+      const innerGradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius * 0.15);
+      innerGradient.addColorStop(0, scheme.primary);
+      innerGradient.addColorStop(1, 'transparent');
+      ctx.fillStyle = innerGradient;
+      ctx.fill();
+      ctx.shadowColor = scheme.glow;
+      ctx.shadowBlur = 20;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    function drawBars(cx, cy, radius, data, scheme) {
+      if (!data) return;
+      const numBars = 80;
+      const maxFreqIndex = Math.floor((8000 / (audioContext?.sampleRate / 2 || 12000)) * bufferLength);
+      const step = Math.max(1, Math.floor(maxFreqIndex / numBars));
+      const barWidth = (radius * 2) / numBars * 0.8;
+      const gap = (radius * 2) / numBars * 0.2;
+      const startX = cx - radius;
+
+      for (let i = 0; i < numBars; i++) {
+        const dataIndex = Math.min(i * step, maxFreqIndex - 1);
+        const value = (data[dataIndex] || 0) / 255 * sensitivity;
+        const barHeight = Math.max(2, value * radius * 1.5);
+        const x = startX + i * (barWidth + gap) + barWidth / 2;
+        const baseY = cy;
+
+        const gradient = ctx.createLinearGradient(x, baseY, x, baseY - barHeight);
+        const progress = i / numBars;
+        const hue = (progress * 240 + 200) % 360;
+        gradient.addColorStop(0, `hsla(${hue}, 100%, 60%, 0.9)`);
+        gradient.addColorStop(0.5, `hsla(${(hue + 30) % 360}, 100%, 50%, 0.7)`);
+        gradient.addColorStop(1, `hsla(${(hue + 60) % 360}, 100%, 40%, 0.3)`);
+
+        ctx.fillStyle = gradient;
+        ctx.shadowColor = scheme.glow;
+        ctx.shadowBlur = 10;
+
+        const barX = x - barWidth / 2;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(barX, baseY - barHeight, barWidth, barHeight, barWidth / 2);
+        else ctx.rect(barX, baseY - barHeight, barWidth, barHeight);
+        ctx.fill();
+
+        ctx.globalAlpha = 0.3;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(barX, baseY, barWidth, barHeight * 0.5, barWidth / 2);
+        else ctx.rect(barX, baseY, barWidth, barHeight * 0.5);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      ctx.shadowBlur = 0;
+    }
+
+    function drawWave(cx, cy, radius, data, scheme) {
+      if (!data) return;
+      const numPoints = 256;
+      const maxFreqIndex = Math.floor((8000 / (audioContext?.sampleRate / 2 || 12000)) * bufferLength);
+      const step = Math.max(1, Math.floor(maxFreqIndex / numPoints));
+      const width = radius * 2;
+
+      for (let layer = 0; layer < 4; layer++) {
+        ctx.beginPath();
+        const amplitude = radius * (0.3 + layer * 0.15);
+        const offset = (layer - 1.5) * 30;
+
+        for (let i = 0; i <= numPoints; i++) {
+          const dataIndex = Math.min(i * step, maxFreqIndex - 1);
+          const value = (data[dataIndex] || 0) / 255 * sensitivity;
+          const x = cx - radius + (i / numPoints) * width;
+          const y = cy + offset + Math.sin(i * 0.1 + Date.now() * 0.002) * 10 + value * amplitude * Math.sin(i * 0.05);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+
+        const gradient = ctx.createLinearGradient(cx - radius, cy, cx + radius, cy);
+        const hue = (200 + layer * 40) % 360;
+        gradient.addColorStop(0, `hsla(${hue}, 100%, 50%, ${0.4 - layer * 0.08})`);
+        gradient.addColorStop(0.5, `hsla(${(hue + 60) % 360}, 100%, 60%, ${0.6 - layer * 0.1})`);
+        gradient.addColorStop(1, `hsla(${hue}, 100%, 50%, ${0.4 - layer * 0.08})`);
+
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = 3 - layer * 0.5;
+        ctx.shadowColor = scheme.glow;
+        ctx.shadowBlur = 10;
+        ctx.stroke();
+      }
+      ctx.shadowBlur = 0;
+    }
+
+    function drawParticles(cx, cy, radius, data, scheme) {
+      if (!data) return;
+      const numParticles = 100;
+      const maxFreqIndex = Math.floor((8000 / (audioContext?.sampleRate / 2 || 12000)) * bufferLength);
+
+      if (!particles) {
+        particles = [];
+        for (let i = 0; i < numParticles; i++) {
+          particles.push({
+            angle: Math.random() * Math.PI * 2,
+            radius: Math.random() * radius * 0.8,
+            speed: 0.0005 + Math.random() * 0.002,
+            size: 1 + Math.random() * 3,
+            hue: Math.random() * 60 + 180,
+            alpha: 0.3 + Math.random() * 0.7
+          });
+        }
+      }
+
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        const dataIndex = Math.min(i * Math.floor(maxFreqIndex / numParticles), maxFreqIndex - 1);
+        const intensity = (data[dataIndex] || 0) / 255 * sensitivity;
+
+        p.angle += p.speed * (1 + intensity * 2);
+        const r = p.radius + intensity * 50;
+        const x = cx + Math.cos(p.angle) * r;
+        const y = cy + Math.sin(p.angle) * r;
+
+        ctx.beginPath();
+        ctx.arc(x, y, p.size * (1 + intensity), 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${p.hue}, 100%, 60%, ${p.alpha * (0.5 + intensity * 0.5)})`;
+        ctx.shadowColor = scheme.glow;
+        ctx.shadowBlur = 10;
+        ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+
+      const avgIntensity = data.slice(0, 10).reduce((a, b) => a + b, 0) / 10 / 255 * sensitivity;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 10 + avgIntensity * 40, 0, Math.PI * 2);
+      const pulseGradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, 30 + avgIntensity * 50);
+      pulseGradient.addColorStop(0, `hsla(200, 100%, 70%, ${0.5 + avgIntensity * 0.3})`);
+      pulseGradient.addColorStop(1, 'transparent');
+      ctx.fillStyle = pulseGradient;
+      ctx.fill();
+    }
+
+    function drawCenterInfo(cx, cy, scheme) {
+      if (!dataArray) return;
+      let sum = 0;
+      for (let i = 0; i < 32; i++) sum += dataArray[i];
+      const avgVolume = sum / 32 / 255;
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, 25, 0, Math.PI * 2);
+      const centerGradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, 30);
+      centerGradient.addColorStop(0, scheme.primary + 'CC');
+      centerGradient.addColorStop(1, 'transparent');
+      ctx.fillStyle = centerGradient;
+      ctx.fill();
+      ctx.shadowColor = scheme.glow;
+      ctx.shadowBlur = 20;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      ctx.font = 'bold 14px Inter, sans-serif';
+      ctx.fillStyle = scheme.primary;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${Math.round(avgVolume * 100)}%`, cx, cy - 4);
+
+      const db = Math.round(20 * Math.log10(avgVolume + 0.001));
+      ctx.font = '10px Azeret Mono, monospace';
+      ctx.fillStyle = scheme.secondary;
+      ctx.fillText(`${db} dB`, cx, cy + 14);
+    }
+
+    function getHueForScheme(ring) {
+      const baseHues = {
+        neon: [200, 180, 220],
+        rainbow: [0, 120, 240],
+        fire: [0, 20, 40],
+        ocean: [190, 210, 170],
+        matrix: [120, 140, 100]
+      };
+      return baseHues[colorScheme]?.[ring] || 200;
+    }
+
+    function updateAudioInfo() {
+      if (!dataArray || !audioContext) return;
+
+      let sum = 0, peak = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        const val = dataArray[i] / 255;
+        sum += val;
+        if (val > peak) peak = val;
+      }
+      const avg = sum / bufferLength;
+      const volumePercent = Math.round(avg * 100 * sensitivity);
+      const peakPercent = Math.round(peak * 100 * sensitivity);
+
+      if (volumeOutput) volumeOutput.textContent = `${volumePercent}%`;
+      if (meterFill) meterFill.style.width = `${Math.min(100, volumePercent)}%`;
+      if (peakInfo) peakInfo.textContent = `${peakPercent}%`;
+
+      const bands = document.querySelectorAll('.legend-bar');
+      FREQUENCY_BANDS.forEach((band, index) => {
+        const minIdx = Math.floor((band.min / (audioContext.sampleRate / 2)) * bufferLength);
+        const maxIdx = Math.floor((band.max / (audioContext.sampleRate / 2)) * bufferLength);
+        let bandSum = 0;
+        for (let i = minIdx; i < maxIdx && i < bufferLength; i++) bandSum += dataArray[i];
+        const bandAvg = bandSum / (maxIdx - minIdx) / 255 * sensitivity;
+        const bar = bands[index];
+        if (bar) {
+          bar.style.setProperty('--level', bandAvg);
+          const colorEl = bar.querySelector('.legend-color');
+          if (colorEl) colorEl.style.width = `${Math.max(8, bandAvg * 100)}px`;
+        }
+      });
+    }
+
+    function bindEvents() {
+      if (startButton) {
+        startButton.addEventListener('click', async () => {
+          await ensureAudioContextResumed();
+          if (isRunning) stopAudio();
+          else startMicrophone();
+        });
+      }
+
+      if (fileBtn && audioFile) {
+        fileBtn.addEventListener('click', () => audioFile.click());
+        audioFile.addEventListener('change', handleFileUpload);
+      }
+
+      if (modeSelect) {
+        modeSelect.addEventListener('change', (e) => {
+          mode = e.target.value;
+          drawIdle();
+        });
+      }
+
+      if (colorSelect) {
+        colorSelect.addEventListener('change', (e) => {
+          colorScheme = e.target.value;
+          drawIdle();
+        });
+      }
+
+      if (sensSlider && sensValue) {
+        sensSlider.addEventListener('input', (e) => {
+          sensitivity = parseFloat(e.target.value);
+          sensValue.textContent = sensitivity.toFixed(1) + 'x';
+        });
+      }
+
+      if (smoothSlider && smoothValue) {
+        smoothSlider.addEventListener('input', (e) => {
+          smoothing = parseFloat(e.target.value);
+          smoothValue.textContent = parseFloat(e.target.value).toFixed(2);
+          if (analyser) analyser.smoothingTimeConstant = smoothing;
+        });
+      }
+
+      if (canvas) {
+        canvas.addEventListener('click', async () => {
+          if (!isRunning && overlay && !overlay.hidden) {
+            await ensureAudioContextResumed();
+            startMicrophone();
+          }
+        });
+      }
+
+      if (debugToggleBtn && debugPanel) {
+        debugToggleBtn.addEventListener('click', () => {
+          debugExpanded = !debugExpanded;
+          debugPanel.hidden = !debugExpanded;
+          debugToggleBtn.innerHTML = debugExpanded
+            ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg> Debug'
+            : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg> Debug';
+        });
+      }
+
+      if (clearDebugBtn && debugContent) {
+        clearDebugBtn.addEventListener('click', () => {
+          debugLog = [];
+          renderDebug();
+        });
+      }
+
+      if (smoothingSlider && smoothingValue) {
+        smoothingSlider.addEventListener('input', (e) => {
+          smoothing = parseFloat(e.target.value);
+          smoothingValue.textContent = parseFloat(e.target.value).toFixed(2);
+          if (analyser) analyser.smoothingTimeConstant = smoothing;
+        });
+      }
+    }
+
+    function init() {
+      bindEvents();
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
+      drawIdle();
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && audioContext?.state === 'suspended') {
+        audioContext.resume().catch(console.error);
+      }
+    });
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  </script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js', { scope: './' })
+          .then(reg => console.log('SW registered:', reg.scope))
+          .catch(err => console.error('SW registration failed:', err));
+      });
+    }
+  </script>
+</body>
+</html>

@@ -1,11 +1,13 @@
-const CACHE_NAME = 'pe1-v2';
+const CACHE_NAME = 'pe1-v6';
 const STATIC_ASSETS = [
   './',
   './index.html',
   './about.html',
   './contact.html',
+  './visualizer.html',
   './styles.css',
   './app.js',
+  './visualizer.js',
   './manifest.json',
   './icons/icon-72.png',
   './icons/icon-96.png',

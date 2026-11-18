@@ -1,3 +1,58 @@
+// Theme Management
+(function() {
+  const THEME_KEY = 'pe1-theme';
+  let themeToggle = document.getElementById('themeToggle');
+  
+  function getSystemTheme() {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  
+  function getStoredTheme() {
+    return localStorage.getItem(THEME_KEY);
+  }
+  
+  function setTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem(THEME_KEY, theme);
+  }
+  
+  function initTheme() {
+    const stored = getStoredTheme();
+    const system = getSystemTheme();
+    const theme = stored || system;
+    setTheme(theme);
+    
+    // Listen for system theme changes
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+      if (!getStoredTheme()) {
+        setTheme(e.matches ? 'dark' : 'light');
+      }
+    });
+  }
+  
+  // Initialize theme immediately (before DOMContentLoaded to prevent flash)
+  initTheme();
+  
+  // Toggle handler - runs after DOM is ready
+  function setupToggle() {
+    themeToggle = document.getElementById('themeToggle');
+    if (themeToggle) {
+      themeToggle.addEventListener('click', () => {
+        const current = document.documentElement.getAttribute('data-theme') || getSystemTheme();
+        const next = current === 'dark' ? 'light' : 'dark';
+        setTheme(next);
+      });
+    }
+  }
+  
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupToggle);
+  } else {
+    setupToggle();
+  }
+})();
+
+// PWA Install Logic
 let deferredPrompt = null;
 const installBtn = document.getElementById('installBtn');
 
@@ -43,7 +98,7 @@ function showSamsungInstallHint() {
   if (isSamsung && !isStandalone && !dismissed) {
     const hint = document.createElement('div');
     hint.id = 'samsungInstallHint';
-    hint.style.cssText = 'position:fixed;bottom:1rem;left:1rem;right:1rem;max-width:400px;margin:0 auto;background:#1e3a8a;color:white;padding:1rem;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.3);z-index:1000;font-size:0.9rem;line-height:1.5;';
+    hint.style.cssText = 'position:fixed;bottom:1rem;left:1rem;right:1rem;max-width:400px;margin:0 auto;background:var(--color-accent);color:white;padding:1rem;border-radius:12px;box-shadow:var(--shadow-float);z-index:1000;font-size:0.9rem;line-height:1.5;';
     hint.innerHTML = `
       <strong>📱 Als App installieren</strong><br>
       Tippe auf <strong>⋮ Menü</strong> (unten rechts) → <strong>"App installieren"</strong> oder <strong>"Zum Startbildschirm"</strong>.
@@ -62,17 +117,17 @@ function addSamsungInstallButton() {
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
   
   if (isSamsung && !isStandalone) {
-    // Add install info to the hero section on index page
-    const hero = document.querySelector('.hero');
-    if (hero && !document.getElementById('samsungInstallInfo')) {
+    // Add to first feature card or main content
+    const firstCard = document.querySelector('.features .feature-card, .features article');
+    if (firstCard && !document.getElementById('samsungInstallInfo')) {
       const info = document.createElement('div');
       info.id = 'samsungInstallInfo';
-      info.style.cssText = 'margin-top:1rem;padding:1rem;background:#fff3cd;border:1px solid #ffc107;border-radius:8px;font-size:0.85rem;color:#856404;text-align:center;';
+      info.style.cssText = 'margin-top:1rem;padding:1rem;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);border-radius:8px;font-size:0.85rem;color:var(--color-text);text-align:center;';
       info.innerHTML = `
         <strong>📱 Samsung Internet:</strong> Installation über <strong>⋮ Menü (unten rechts)</strong> → <strong>"App installieren"</strong> oder <strong>"Zum Startbildschirm"</strong>.<br>
         <small>Erscheint nach 1-2 Besuchen. Falls nicht: Seite als Lesezeichen speichern → Startbildschirm hinzufügen.</small>
       `;
-      hero.appendChild(info);
+      firstCard.appendChild(info);
     }
   }
 }

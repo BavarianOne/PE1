@@ -2,8 +2,8 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#2563eb">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0099ff">
   <meta name="description" content="Kontakt - PE1 Progressive Web App">
   <title>Kontakt | PE1</title>
   <link rel="manifest" href="manifest.json">
@@ -14,79 +14,148 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="PE1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Azeret+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
-  <header>
-    <h1>PE1</h1>
-    <nav>
-      <a href="index.html" aria-label="Start">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-          <polyline points="9 22 9 12 15 12 15 22"/>
+  <!-- Top Nav (Desktop) -->
+  <header class="nav-top">
+    <div class="nav-top-inner">
+      <a href="index.html" class="nav-brand" aria-label="PE1 Startseite">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+          <line x1="12" y1="22.08" x2="12" y2="12"/>
         </svg>
+        PE1
       </a>
-      <a href="compass.html" aria-label="Kompass">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"/>
-          <polygon points="12 2 15 8 12 8"/>
-          <polygon points="12 22 15 16 12 16"/>
-          <polygon points="2 12 8 15 8 12"/>
-          <polygon points="22 12 16 15 16 12"/>
+      <nav class="nav-links" aria-label="Hauptnavigation">
+        <a href="index.html" class="nav-link">Start</a>
+        <a href="compass.html" class="nav-link">Kompass</a>
+        <a href="visualizer.html" class="nav-link">Visualizer</a>
+        <a href="motion-sounds.html" class="nav-link">Motion Sounds</a>
+        <a href="about.html" class="nav-link">Über</a>
+        <a href="contact.html" class="nav-link active" aria-current="page">Kontakt</a>
+      </nav>
+      <button class="theme-toggle" id="themeToggle" aria-label="Design-Modus wechseln" title="Theme wechseln">
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
         </svg>
-      </a>
-      <a href="motion-sounds.html" aria-label="Motion Sounds">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M11 5L6 9H2v14h20V9H13L11 5z"/>
-          <path d="M19 3l-1 1"/>
-          <path d="M21 3l-3 3 3 3"/>
-          <path d="M23 9V5l-2 2"/>
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1" x2="12" y2="3"/>
+          <line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/>
+          <line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
         </svg>
-      </a>
-      <a href="about.html" aria-label="Über">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"/>
-          <path d="M12 16v-4"/>
-          <path d="M12 8h.01"/>
-        </svg>
-      </a>
-      <a href="contact.html" class="active" aria-label="Kontakt">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-          <circle cx="12" cy="10" r="3"/>
-        </svg>
-      </a>
-    </nav>
+      </button>
+    </div>
   </header>
 
+  <!-- Main Content -->
   <main>
-    <section class="hero" style="padding: 0.5rem; margin-bottom: 0.35rem;">
-      <h2 style="font-size: 1rem; margin-bottom: 0.15rem;">Kontakt</h2>
-      <p style="font-size: 0.75rem;">Fragen, Feedback oder Anregungen?</p>
-    </section>
-
-    <section class="features" style="grid-template-columns: 1fr; gap: 0.5rem;">
-      <article style="padding: 0.75rem;">
-        <h3 style="font-size: 0.9rem; margin-bottom: 0.3rem;">GitHub</h3>
-        <p style="font-size: 0.75rem; color: var(--text-muted);">Issues, Pull Requests und Diskussionen laufen über das Repository.</p>
-        <p style="font-size: 0.75rem;"><a href="https://github.com/BavarianOne/PE1" target="_blank" rel="noopener">github.com/BavarianOne/PE1</a></p>
-      </article>
-      <article style="padding: 0.75rem;">
-        <h3 style="font-size: 0.9rem; margin-bottom: 0.3rem;">Entwicklung</h3>
-        <p style="font-size: 0.75rem; color: var(--text-muted);">Dies ist ein Open-Source-Projekt. Beiträge sind willkommen!<br>Forken, Branch erstellen, Änderungen committen, PR öffnen.</p>
-      </article>
-      <article style="padding: 0.75rem;">
-        <h3 style="font-size: 0.9rem; margin-bottom: 0.3rem;">Lizenz</h3>
-        <p style="font-size: 0.75rem; color: var(--text-muted);">MIT License — frei nutzbar, veränderbar und verteilbar.</p>
-      </article>
-    </section>
+    <div class="container">
+      <section class="section" aria-labelledby="contact-title">
+        <h2 id="contact-title" class="hero-title" style="font-size: var(--text-h2); text-align: center; margin-bottom: var(--space-6);">Kontakt</h2>
+        <div class="features" role="list">
+          <article class="card card-ring slide-up stagger-1" role="listitem">
+            <h3>GitHub</h3>
+            <p>Issues, Pull Requests und Diskussionen laufen über das Repository.</p>
+            <p><a href="https://github.com/BavarianOne/PE1" target="_blank" rel="noopener" style="color: var(--color-accent);">github.com/BavarianOne/PE1</a></p>
+          </article>
+          <article class="card card-ring slide-up stagger-2" role="listitem">
+            <h3>Entwicklung</h3>
+            <p>Dies ist ein Open-Source-Projekt. Beiträge sind willkommen!<br>Forken, Branch erstellen, Änderungen committen, PR öffnen.</p>
+          </article>
+          <article class="card card-ring slide-up stagger-3" role="listitem">
+            <h3>Lizenz</h3>
+            <p>MIT License — frei nutzbar, veränderbar und verteilbar.</p>
+          </article>
+          <article class="card card-ring slide-up stagger-1" role="listitem">
+            <h3>Bug Reports</h3>
+            <p>Gefundene Fehler bitte als <a href="https://github.com/BavarianOne/PE1/issues/new" target="_blank" rel="noopener" style="color: var(--color-accent);">GitHub Issue</a> melden mit:<br>• Gerät/Browser/OS<br>• Schritte zur Reproduktion<br>• Erwartetes vs. tatsächliches Verhalten</p>
+          </article>
+          <article class="card card-ring slide-up stagger-2" role="listitem">
+            <h3>Feature Requests</h3>
+            <p>Ideen für neue Features? Eröffne eine <a href="https://github.com/BavarianOne/PE1/discussions" target="_blank" rel="noopener" style="color: var(--color-accent);">Discussion</a> oder Issue mit dem Label "enhancement".</p>
+          </article>
+          <article class="card card-ring slide-up stagger-3" role="listitem">
+            <h3>Credits</h3>
+            <p>Entwickelt von <a href="https://github.com/BavarianOne" target="_blank" rel="noopener" style="color: var(--color-accent);">BavarianOne</a>.<br>
+            Icons: Heroicons-Style (SVG).<br>
+            Fonts: Inter & Azeret Mono via Google Fonts.<br>
+            CSS Framework: Eigenes Design-System (CSS Custom Properties).</p>
+          </article>
+        </div>
+      </section>
+    </div>
   </main>
 
+  <!-- Bottom Nav (Mobile/Tablet) -->
+  <nav class="nav-bottom" aria-label="Hauptnavigation">
+    <a href="index.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        <polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+      <span>Start</span>
+    </a>
+    <a href="compass.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <polygon points="12 2 15 8 12 8"/>
+        <polygon points="12 22 15 16 12 16"/>
+        <polygon points="2 12 8 15 8 12"/>
+        <polygon points="22 12 16 15 16 12"/>
+      </svg>
+      <span>Kompass</span>
+    </a>
+    <a href="visualizer.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polygon points="17 3 5 3 3 9 5 15 17 15 19 9"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+        <line x1="5" y1="9" x2="17" y2="9"/>
+      </svg>
+      <span>Visualizer</span>
+    </a>
+    <a href="motion-sounds.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M11 5L6 9H2v14h20V9H13L11 5z"/>
+        <path d="M19 3l-1 1"/>
+        <path d="M21 3l-3 3 3 3"/>
+        <path d="M23 9V5l-2 2"/>
+      </svg>
+      <span>Sounds</span>
+    </a>
+    <a href="about.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 16v-4"/>
+        <path d="M12 8h.01"/>
+      </svg>
+      <span>Über</span>
+    </a>
+    <a href="contact.html" class="nav-item active" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+        <circle cx="12" cy="10" r="3"/>
+      </svg>
+      <span>Kontakt</span>
+    </a>
+  </nav>
+
   <footer>
-    <p>&copy; 2026 PE1. <a href="https://github.com/BavarianOne/PE1">GitHub</a></p>
+    <p>&copy; 2026 PE1. <a href="https://github.com/BavarianOne/PE1" style="color: var(--color-accent); text-decoration: none;">GitHub</a></p>
   </footer>
 
   <script src="app.js"></script>
   <script>
+    // Service Worker Registration
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js', { scope: './' })

@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#f97316">
   <meta name="description" content="Motion Sounds - PE1 Progressive Web App">
   <title>Motion Sounds | PE1</title>
@@ -14,401 +14,245 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="PE1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Azeret+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    .sound-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 1.5rem;
-      padding: 1rem;
-    }
-    
-    .sound-selector {
-      display: flex;
-      gap: 0.75rem;
-      flex-wrap: wrap;
-      justify-content: center;
-      width: 100%;
-      max-width: 400px;
-    }
-    
-    .sound-btn {
-      flex: 1;
-      min-width: 100px;
-      padding: 1rem 0.75rem;
-      border: 2px solid #f97316;
-      background: rgba(249, 115, 22, 0.1);
-      border-radius: 16px;
-      color: #f97316;
-      font-weight: 600;
-      font-size: 0.9rem;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.25rem;
-    }
-    
-    .sound-btn:hover {
-      background: rgba(249, 115, 22, 0.2);
-      transform: translateY(-2px);
-    }
-    
-    .sound-btn.active {
-      background: #f97316;
-      color: white;
-      box-shadow: 0 8px 24px rgba(249, 115, 22, 0.4);
-    }
-    
-    .sound-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-    }
-    
-    .sound-btn svg {
-      width: 28px;
-      height: 28px;
-    }
-    
-    .visualizer {
-      width: 100%;
-      max-width: 360px;
-      height: 160px;
-      background: rgba(15, 23, 42, 0.8);
-      border: 2px solid rgba(249, 115, 22, 0.3);
-      border-radius: 16px;
-      position: relative;
-      overflow: hidden;
-    }
-    
-    .visualizer canvas {
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
-    
-    .motion-indicator {
-      display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
-      justify-content: center;
-      padding: 1rem;
-      background: rgba(30, 41, 59, 0.5);
-      border: 1px solid rgba(148, 163, 184, 0.1);
-      border-radius: 16px;
-      width: 100%;
-      max-width: 400px;
-    }
-    
-    .motion-axis {
-      flex: 1;
-      min-width: 80px;
-      text-align: center;
-    }
-    
-    .motion-axis label {
-      display: block;
-      font-size: 0.7rem;
-      color: #94a3b8;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 0.25rem;
-    }
-    
-    .motion-axis .value {
-      font-family: 'SF Mono', 'Monospace', monospace;
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: #f97316;
-    }
-    
-    .motion-axis .value.high { color: #ef4444; }
-    .motion-axis .value.med { color: #fbbf24; }
-    .motion-axis .value.low { color: #22c55e; }
-    
-    .sensitivity-control {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      padding: 1rem;
-      background: rgba(30, 41, 59, 0.5);
-      border: 1px solid rgba(148, 163, 184, 0.1);
-      border-radius: 16px;
-      width: 100%;
-      max-width: 400px;
-    }
-    
-    .sensitivity-control label {
-      font-size: 0.875rem;
-      color: #e2e8f0;
-      white-space: nowrap;
-    }
-    
-    .sensitivity-control input[type="range"] {
-      flex: 1;
-      accent-color: #f97316;
-    }
-    
-    .sensitivity-control .value {
-      font-family: 'SF Mono', 'Monospace', monospace;
-      font-size: 1rem;
-      color: #f97316;
-      min-width: 40px;
-      text-align: right;
-    }
-    
-    .status-display {
-      text-align: center;
-      padding: 0.75rem;
-      border-radius: 12px;
-      font-size: 0.875rem;
-      font-weight: 500;
-      width: 100%;
-      max-width: 400px;
-    }
-    
-    .status-display.waiting {
-      background: rgba(251, 191, 36, 0.15);
-      border: 1px solid rgba(251, 191, 36, 0.3);
-      color: #fbbf24;
-    }
-    
-    .status-display.active {
-      background: rgba(34, 197, 94, 0.15);
-      border: 1px solid rgba(34, 197, 94, 0.3);
-      color: #22c55e;
-    }
-    
-    .status-display.error {
-      background: rgba(239, 68, 68, 0.15);
-      border: 1px solid rgba(239, 68, 68, 0.3);
-      color: #ef4444;
-    }
-    
-    .permission-btn {
-      padding: 0.875rem 2rem;
-      background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
-      color: white;
-      border: none;
-      border-radius: 12px;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      box-shadow: 0 4px 16px rgba(249, 115, 22, 0.3);
-    }
-    
-    .permission-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(249, 115, 22, 0.4);
-    }
-    
-    .permission-btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-      transform: none;
-    }
-    
-    .info-card {
-      background: rgba(30, 41, 59, 0.5);
-      border: 1px solid rgba(148, 163, 184, 0.1);
-      border-radius: 16px;
-      padding: 1rem;
-      width: 100%;
-      max-width: 400px;
-      text-align: left;
-    }
-    
-    .info-card h3 {
-      color: #f97316;
-      margin-bottom: 0.75rem;
-      font-size: 1rem;
-    }
-    
-    .info-card ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-    
-    .info-card li {
-      padding: 0.375rem 0;
-      color: #cbd5e1;
-      font-size: 0.875rem;
-      border-bottom: 1px solid rgba(148, 163, 184, 0.1);
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    
-    .info-card li:last-child {
-      border-bottom: none;
-    }
-    
-    .info-card li::before {
-      content: '→';
-      color: #f97316;
-      font-weight: bold;
-    }
-    
-    @media (prefers-reduced-motion: reduce) {
-      .sound-btn, .permission-btn {
-        transition: none;
-      }
-      .sound-btn:hover { transform: none; }
-      .permission-btn:hover { transform: none; }
+    .sound-container { display: flex; flex-direction: column; gap: var(--space-6); padding: var(--space-4); max-width: 480px; margin: 0 auto; width: 100%; }
+    .sound-selector { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3); }
+    .sound-btn { padding: var(--space-5) var(--space-4); border: 2px solid var(--color-accent); background: var(--color-surface); border-radius: var(--radius-lg); color: var(--color-accent); font-weight: 600; font-size: var(--text-sm); cursor: pointer; transition: all var(--duration-fast) var(--ease-out); display: flex; flex-direction: column; align-items: center; gap: var(--space-2); min-height: 100px; }
+    .sound-btn:hover { background: var(--color-accent-glow); transform: translateY(-2px); }
+    .sound-btn.active { background: var(--color-accent); color: white; box-shadow: var(--shadow-ring), 0 4px 12px var(--color-accent-glow); }
+    .sound-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .sound-btn svg { width: 28px; height: 28px; }
+    .sound-btn .sound-label { font-size: var(--text-caption); text-align: center; line-height: 1.2; }
+    .visualizer-card { position: relative; overflow: hidden; background: var(--color-surface); aspect-ratio: 16/9; min-height: 200px; border-radius: var(--radius-lg); border: 1px solid var(--color-border); box-shadow: var(--shadow-ring), var(--shadow-card); }
+    .visualizer-card canvas { width: 100%; height: 100%; display: block; }
+    .motion-indicators { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3); }
+    .motion-axis { text-align: center; padding: var(--space-4); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); }
+    .motion-axis label { display: block; font-size: var(--text-caption); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--space-2); }
+    .motion-axis .value { font-family: var(--font-mono); font-size: var(--text-h3); font-weight: 700; color: var(--color-accent); }
+    .motion-axis .value.high { color: var(--color-error); }
+    .motion-axis .value.med { color: var(--color-warning); }
+    .motion-axis .value.low { color: var(--color-success); }
+    .sensitivity-control { display: flex; align-items: center; gap: var(--space-4); padding: var(--space-4); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); }
+    .sensitivity-control label { font-size: var(--text-sm); color: var(--color-text); white-space: nowrap; }
+    .sensitivity-control input[type="range"] { flex: 1; accent-color: var(--color-accent); }
+    .sensitivity-control .value { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--color-accent); min-width: 40px; text-align: right; }
+    .status-display { text-align: center; padding: var(--space-4); border-radius: var(--radius-lg); font-size: var(--text-sm); font-weight: 500; }
+    .status-display.waiting { background: rgba(251, 191, 36, 0.15); border: 1px solid rgba(251, 191, 36, 0.3); color: var(--color-warning); }
+    .status-display.active { background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.3); color: var(--color-success); }
+    .status-display.error { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: var(--color-error); }
+    .permission-btn { padding: var(--space-4) var(--space-8); background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-glow) 100%); color: white; border: none; border-radius: var(--radius-lg); font-size: var(--text-body); font-weight: 600; cursor: pointer; transition: all var(--duration-fast) var(--ease-out); box-shadow: var(--shadow-ring), 0 4px 12px var(--color-accent-glow); width: 100%; max-width: 320px; margin: 0 auto; }
+    .permission-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-ring), 0 8px 24px var(--color-accent-glow); }
+    .permission-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .info-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-5); text-align: left; }
+    .info-card h3 { color: var(--color-accent); margin-bottom: var(--space-4); font-size: var(--text-body); }
+    .info-card ul { list-style: none; padding: 0; margin: 0; }
+    .info-card li { padding: var(--space-2) 0; color: var(--color-text-muted); font-size: var(--text-sm); border-bottom: 1px solid var(--color-border); display: flex; align-items: flex-start; gap: var(--space-3); }
+    .info-card li:last-child { border-bottom: none; }
+    .info-card li::before { content: '→'; color: var(--color-accent); font-weight: bold; flex-shrink: 0; margin-top: 0.1em; }
+    @media (max-width: 480px) {
+      .sound-selector { grid-template-columns: 1fr; }
+      .motion-indicators { grid-template-columns: repeat(2, 1fr); }
     }
   </style>
 </head>
 <body>
-  <header>
-    <h1>PE1</h1>
-    <nav>
-      <a href="index.html" aria-label="Start">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-          <polyline points="9 22 9 12 15 12 15 22"/>
+  <!-- Top Nav (Desktop) -->
+  <header class="nav-top">
+    <div class="nav-top-inner">
+      <a href="index.html" class="nav-brand" aria-label="PE1 Startseite">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+          <line x1="12" y1="22.08" x2="12" y2="12"/>
         </svg>
+        PE1
       </a>
-      <a href="compass.html" aria-label="Kompass">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"/>
-          <polygon points="12 2 15 8 12 8"/>
-          <polygon points="12 22 15 16 12 16"/>
-          <polygon points="2 12 8 15 8 12"/>
-          <polygon points="22 12 16 15 16 12"/>
+      <nav class="nav-links" aria-label="Hauptnavigation">
+        <a href="index.html" class="nav-link">Start</a>
+        <a href="compass.html" class="nav-link">Kompass</a>
+        <a href="visualizer.html" class="nav-link">Visualizer</a>
+        <a href="motion-sounds.html" class="nav-link active" aria-current="page">Motion Sounds</a>
+        <a href="about.html" class="nav-link">Über</a>
+        <a href="contact.html" class="nav-link">Kontakt</a>
+      </nav>
+      <button class="theme-toggle" id="themeToggle" aria-label="Design-Modus wechseln" title="Theme wechseln">
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
         </svg>
-      </a>
-      <a href="motion-sounds.html" class="active" aria-label="Motion Sounds">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M11 5L6 9H2v14h20V9H13L11 5z"/>
-          <path d="M19 3l-1 1"/>
-          <path d="M21 3l-3 3 3 3"/>
-          <path d="M23 9V5l-2 2"/>
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1" x2="12" y2="3"/>
+          <line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/>
+          <line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
         </svg>
-      </a>
-      <a href="about.html" aria-label="Über">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"/>
-          <path d="M12 16v-4"/>
-          <path d="M12 8h.01"/>
-        </svg>
-      </a>
-      <a href="contact.html" aria-label="Kontakt">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-          <circle cx="12" cy="10" r="3"/>
-        </svg>
-      </a>
-    </nav>
+      </button>
+    </div>
   </header>
 
   <main>
-    <section class="hero" style="padding: 1rem; margin-bottom: 0.5rem;">
-      <h2 style="font-size: 1.25rem; margin-bottom: 0.25rem;">Motion Sounds</h2>
-      <p style="font-size: 0.875rem;">Bewege dein Handy für Soundeffekte — Lichtschwert, Bohrmaschine, Trommel</p>
-    </section>
-
-    <section class="features">
-      <div class="sound-container" role="region" aria-label="Motion Sound Controls">
+    <div class="container">
+      <section class="section" aria-labelledby="motion-title">
+        <h2 id="motion-title" class="sr-only">Motion Sounds</h2>
         
-        <!-- Sound Selector -->
-        <div class="sound-selector" role="radiogroup" aria-label="Sound auswählen">
-          <button class="sound-btn active" data-sound="lightsaber" role="radio" aria-checked="true" aria-label="Lichtschwert">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M12 2v20"/>
-              <path d="M8 6h8"/>
-              <path d="M8 10h8"/>
-              <path d="M8 14h8"/>
-              <path d="M8 18h8"/>
-            </svg>
-            <span>Lichtschwert</span>
+        <div class="sound-container" role="region" aria-label="Motion Sound Controls">
+          
+          <!-- Sound Selector -->
+          <div class="sound-selector" role="radiogroup" aria-label="Sound auswählen">
+            <button class="sound-btn active" data-sound="lightsaber" role="radio" aria-checked="true" aria-label="Lichtschwert">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 2v20"/>
+                <path d="M8 6h8"/>
+                <path d="M8 10h8"/>
+                <path d="M8 14h8"/>
+                <path d="M8 18h8"/>
+              </svg>
+              <span class="sound-label">Lichtschwert</span>
+            </button>
+            <button class="sound-btn" data-sound="drill" role="radio" aria-checked="false" aria-label="Bohrmaschine">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 2v20"/>
+                <path d="M17 2h-10"/>
+                <path d="M15 6h-6"/>
+                <path d="M17 10h-10"/>
+                <path d="M15 14h-6"/>
+                <path d="M17 18h-10"/>
+                <path d="M12 22v-4"/>
+              </svg>
+              <span class="sound-label">Bohrmaschine</span>
+            </button>
+            <button class="sound-btn" data-sound="drum" role="radio" aria-checked="false" aria-label="Trommel">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <ellipse cx="12" cy="12" rx="10" ry="6"/>
+                <path d="M2 12c0-3.3 2.7-6 6-6s6 2.7 6 6-2.7 6-6 6"/>
+                <path d="M10 8v8"/>
+                <path d="M14 8v8"/>
+              </svg>
+              <span class="sound-label">Trommel</span>
+            </button>
+          </div>
+
+          <!-- Visualizer -->
+          <div class="visualizer-card card card-ring slide-up stagger-1" role="img" aria-label="Audio Visualizer">
+            <canvas id="visualizerCanvas"></canvas>
+          </div>
+
+          <!-- Motion Indicators -->
+          <div class="motion-indicators slide-up stagger-2" aria-live="polite" aria-label="Bewegungswerte">
+            <div class="motion-axis">
+              <label>X (Neigung)</label>
+              <div class="value low" id="motionX">0.0</div>
+            </div>
+            <div class="motion-axis">
+              <label>Y (Rollen)</label>
+              <div class="value low" id="motionY">0.0</div>
+            </div>
+            <div class="motion-axis">
+              <label>Z (Schütteln)</label>
+              <div class="value low" id="motionZ">0.0</div>
+            </div>
+            <div class="motion-axis">
+              <label>Gesamt</label>
+              <div class="value low" id="motionTotal">0.0</div>
+            </div>
+          </div>
+
+          <!-- Sensitivity Control -->
+          <div class="sensitivity-control slide-up stagger-3">
+            <label for="sensitivity">Empfindlichkeit</label>
+            <input type="range" id="sensitivity" min="0.1" max="3" step="0.1" value="1" class="slider">
+            <span class="value" id="sensitivityValue">1.0x</span>
+          </div>
+
+          <!-- Status -->
+          <div class="status-display waiting slide-up stagger-3" id="statusDisplay" role="status" aria-live="polite">
+            Tippe auf einen Sound, um zu starten
+          </div>
+
+          <!-- Permission Button (iOS) -->
+          <button class="permission-btn" id="permissionBtn" style="display: none;">
+            Berechtigung erteilen (iOS)
           </button>
-          <button class="sound-btn" data-sound="drill" role="radio" aria-checked="false" aria-label="Bohrmaschine">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M12 2v20"/>
-              <path d="M17 2h-10"/>
-              <path d="M15 6h-6"/>
-              <path d="M17 10h-10"/>
-              <path d="M15 14h-6"/>
-              <path d="M17 18h-10"/>
-              <path d="M12 22v-4"/>
-            </svg>
-            <span>Bohrmaschine</span>
-          </button>
-          <button class="sound-btn" data-sound="drum" role="radio" aria-checked="false" aria-label="Trommel">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <ellipse cx="12" cy="12" rx="10" ry="6"/>
-              <path d="M2 12c0-3.3 2.7-6 6-6s6 2.7 6 6-2.7 6-6 6"/>
-              <path d="M10 8v8"/>
-              <path d="M14 8v8"/>
-            </svg>
-            <span>Trommel</span>
-          </button>
-        </div>
 
-        <!-- Visualizer -->
-        <div class="visualizer" role="img" aria-label="Audio Visualizer">
-          <canvas id="visualizerCanvas"></canvas>
-        </div>
-
-        <!-- Motion Indicators -->
-        <div class="motion-indicator" aria-live="polite" aria-label="Bewegungswerte">
-          <div class="motion-axis">
-            <label>X (Neigung)</label>
-            <div class="value low" id="motionX">0.0</div>
+          <!-- Info Card -->
+          <div class="info-card slide-up stagger-3">
+            <h3>💡 Wie es funktioniert</h3>
+            <ul>
+              <li>Bewege das Handy in der Hand (schütteln, schwingen, drehen)</li>
+              <li>Die Beschleunigung löst Sounds aus — je heftiger, desto lauter/schneller</li>
+              <li>Lichtschwert: Schwing-Bewegungen erzeugen den typischen "Swoosh"</li>
+              <li>Bohrmaschine: Schnelles Schütteln = Bohren</li>
+              <li>Trommel: Schlag-Bewegungen = Trommelschläge</li>
+            </ul>
           </div>
-          <div class="motion-axis">
-            <label>Y (Rollen)</label>
-            <div class="value low" id="motionY">0.0</div>
-          </div>
-          <div class="motion-axis">
-            <label>Z (Schütteln)</label>
-            <div class="value low" id="motionZ">0.0</div>
-          </div>
-          <div class="motion-axis">
-            <label>Gesamt</label>
-            <div class="value low" id="motionTotal">0.0</div>
-          </div>
+
         </div>
-
-        <!-- Sensitivity Control -->
-        <div class="sensitivity-control">
-          <label for="sensitivity">Empfindlichkeit</label>
-          <input type="range" id="sensitivity" min="0.1" max="3" step="0.1" value="1">
-          <span class="value" id="sensitivityValue">1.0×</span>
-        </div>
-
-        <!-- Status -->
-        <div class="status-display waiting" id="statusDisplay" role="status" aria-live="polite">
-          Tippe auf "Berechtigung erteilen" um zu starten
-        </div>
-
-        <!-- Permission Button (iOS) -->
-        <button class="permission-btn" id="permissionBtn" style="display: none;">
-          Berechtigung erteilen (iOS)
-        </button>
-
-        <!-- Info Card -->
-        <div class="info-card">
-          <h3>💡 Wie es funktioniert</h3>
-          <ul>
-            <li>Bewege das Handy in der Hand (schütteln, schwingen, drehen)</li>
-            <li>Die Beschleunigung löst Sounds aus — je heftiger, desto lauter/schneller</li>
-            <li>Lichtschwert: Schwing-Bewegungen erzeugen den typischen "Swoosh"</li>
-            <li>Bohrmaschine: Schnelles Schütteln = Bohren</li>
-            <li>Trommel: Schlag-Bewegungen = Trommelschläge</li>
-          </ul>
-        </div>
-
-      </div>
-    </section>
+      </section>
+    </div>
   </main>
 
+  <!-- Bottom Nav (Mobile/Tablet) -->
+  <nav class="nav-bottom" aria-label="Hauptnavigation">
+    <a href="index.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        <polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+      <span>Start</span>
+    </a>
+    <a href="compass.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <polygon points="12 2 15 8 12 8"/>
+        <polygon points="12 22 15 16 12 16"/>
+        <polygon points="2 12 8 15 8 12"/>
+        <polygon points="22 12 16 15 16 12"/>
+      </svg>
+      <span>Kompass</span>
+    </a>
+    <a href="visualizer.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polygon points="17 3 5 3 3 9 5 15 17 15 19 9"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+        <line x1="5" y1="9" x2="17" y2="9"/>
+      </svg>
+      <span>Visualizer</span>
+    </a>
+    <a href="motion-sounds.html" class="nav-item active" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M11 5L6 9H2v14h20V9H13L11 5z"/>
+        <path d="M19 3l-1 1"/>
+        <path d="M21 3l-3 3 3 3"/>
+        <path d="M23 9V5l-2 2"/>
+      </svg>
+      <span>Sounds</span>
+    </a>
+    <a href="about.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 16v-4"/>
+        <path d="M12 8h.01"/>
+      </svg>
+      <span>Über</span>
+    </a>
+    <a href="contact.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+        <circle cx="12" cy="10" r="3"/>
+      </svg>
+      <span>Kontakt</span>
+    </a>
+  </nav>
+
   <footer>
-    <p>&copy; 2026 PE1. <a href="https://github.com/BavarianOne/PE1">GitHub</a></p>
+    <p>&copy; 2026 PE1. <a href="https://github.com/BavarianOne/PE1" style="color: var(--color-accent); text-decoration: none;">GitHub</a></p>
   </footer>
 
   <script src="app.js"></script>
@@ -911,7 +755,7 @@
       
       isPlaying = true;
       statusDisplay.textContent = 'Aktiv — Bewege dein Handy!';
-      statusDisplay.className = 'status-display active';
+      statusDisplay.className = 'status-display active slide-up stagger-3';
       permissionBtn.style.display = 'none';
       
       drawVisualizer();
@@ -996,7 +840,7 @@
     // Sensitivity control
     sensitivitySlider.addEventListener('input', (e) => {
       sensitivity = parseFloat(e.target.value);
-      sensitivityValue.textContent = sensitivity.toFixed(1) + '×';
+      sensitivityValue.textContent = sensitivity.toFixed(1) + 'x';
     });
     
     // iOS Permission
@@ -1008,16 +852,16 @@
             startMotionListening();
             permissionBtn.style.display = 'none';
             statusDisplay.textContent = 'Berechtigung erteilt — bewege dein Handy!';
-            statusDisplay.className = 'status-display active';
+            statusDisplay.className = 'status-display active slide-up stagger-3';
             initAudio();
           } else {
             statusDisplay.textContent = 'Berechtigung verweigert';
-            statusDisplay.className = 'status-display error';
+            statusDisplay.className = 'status-display error slide-up stagger-3';
           }
         } catch (err) {
           console.error('Permission error:', err);
           statusDisplay.textContent = 'Fehler bei der Berechtigungsanfrage';
-          statusDisplay.className = 'status-display error';
+          statusDisplay.className = 'status-display error slide-up stagger-3';
         }
       } else {
         startMotionListening();
