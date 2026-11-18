@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f97316">
+  <meta name="description" content="Motion Sounds - PE1 Progressive Web App">
+  <title>Motion Sounds | PE1</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+  <link rel="stylesheet" href="styles.css">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="PE1">
+  <style>
+    .sound-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+      padding: 1rem;
+    }
+    
+    .sound-selector {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      width: 100%;
+      max-width: 400px;
+    }
+    
+    .sound-btn {
+      flex: 1;
+      min-width: 100px;
+      padding: 1rem 0.75rem;
+      border: 2px solid #f97316;
+      background: rgba(249, 115, 22, 0.1);
+      border-radius: 16px;
+      color: #f97316;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    
+    .sound-btn:hover {
+      background: rgba(249, 115, 22, 0.2);
+      transform: translateY(-2px);
+    }
+    
+    .sound-btn.active {
+      background: #f97316;
+      color: white;
+      box-shadow: 0 8px 24px rgba(249, 115, 22, 0.4);
+    }
+    
+    .sound-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .sound-btn svg {
+      width: 28px;
+      height: 28px;
+    }
+    
+    .visualizer {
+      width: 100%;
+      max-width: 360px;
+      height: 160px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 2px solid rgba(249, 115, 22, 0.3);
+      border-radius: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .visualizer canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    
+    .motion-indicator {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      padding: 1rem;
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 400px;
+    }
+    
+    .motion-axis {
+      flex: 1;
+      min-width: 80px;
+      text-align: center;
+    }
+    
+    .motion-axis label {
+      display: block;
+      font-size: 0.7rem;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.25rem;
+    }
+    
+    .motion-axis .value {
+      font-family: 'SF Mono', 'Monospace', monospace;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #f97316;
+    }
+    
+    .motion-axis .value.high { color: #ef4444; }
+    .motion-axis .value.med { color: #fbbf24; }
+    .motion-axis .value.low { color: #22c55e; }
+    
+    .sensitivity-control {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem;
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 400px;
+    }
+    
+    .sensitivity-control label {
+      font-size: 0.875rem;
+      color: #e2e8f0;
+      white-space: nowrap;
+    }
+    
+    .sensitivity-control input[type="range"] {
+      flex: 1;
+      accent-color: #f97316;
+    }
+    
+    .sensitivity-control .value {
+      font-family: 'SF Mono', 'Monospace', monospace;
+      font-size: 1rem;
+      color: #f97316;
+      min-width: 40px;
+      text-align: right;
+    }
+    
+    .status-display {
+      text-align: center;
+      padding: 0.75rem;
+      border-radius: 12px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      width: 100%;
+      max-width: 400px;
+    }
+    
+    .status-display.waiting {
+      background: rgba(251, 191, 36, 0.15);
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      color: #fbbf24;
+    }
+    
+    .status-display.active {
+      background: rgba(34, 197, 94, 0.15);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      color: #22c55e;
+    }
+    
+    .status-display.error {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #ef4444;
+    }
+    
+    .permission-btn {
+      padding: 0.875rem 2rem;
+      background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 16px rgba(249, 115, 22, 0.3);
+    }
+    
+    .permission-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(249, 115, 22, 0.4);
+    }
+    
+    .permission-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .info-card {
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+      border-radius: 16px;
+      padding: 1rem;
+      width: 100%;
+      max-width: 400px;
+      text-align: left;
+    }
+    
+    .info-card h3 {
+      color: #f97316;
+      margin-bottom: 0.75rem;
+      font-size: 1rem;
+    }
+    
+    .info-card ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    
+    .info-card li {
+      padding: 0.375rem 0;
+      color: #cbd5e1;
+      font-size: 0.875rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .info-card li:last-child {
+      border-bottom: none;
+    }
+    
+    .info-card li::before {
+      content: '→';
+      color: #f97316;
+      font-weight: bold;
+    }
+    
+    @media (prefers-reduced-motion: reduce) {
+      .sound-btn, .permission-btn {
+        transition: none;
+      }
+      .sound-btn:hover { transform: none; }
+      .permission-btn:hover { transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>PE1</h1>
+    <nav>
+      <a href="index.html" aria-label="Start">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+      </a>
+      <a href="compass.html" aria-label="Kompass">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <polygon points="12 2 15 8 12 8"/>
+          <polygon points="12 22 15 16 12 16"/>
+          <polygon points="2 12 8 15 8 12"/>
+          <polygon points="22 12 16 15 16 12"/>
+        </svg>
+      </a>
+      <a href="motion-sounds.html" class="active" aria-label="Motion Sounds">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M11 5L6 9H2v14h20V9H13L11 5z"/>
+          <path d="M19 3l-1 1"/>
+          <path d="M21 3l-3 3 3 3"/>
+          <path d="M23 9V5l-2 2"/>
+        </svg>
+      </a>
+      <a href="about.html" aria-label="Über">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 16v-4"/>
+          <path d="M12 8h.01"/>
+        </svg>
+      </a>
+      <a href="contact.html" aria-label="Kontakt">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+          <circle cx="12" cy="10" r="3"/>
+        </svg>
+      </a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero" style="padding: 1rem; margin-bottom: 0.5rem;">
+      <h2 style="font-size: 1.25rem; margin-bottom: 0.25rem;">Motion Sounds</h2>
+      <p style="font-size: 0.875rem;">Bewege dein Handy für Soundeffekte — Lichtschwert, Bohrmaschine, Trommel</p>
+    </section>
+
+    <section class="features">
+      <div class="sound-container" role="region" aria-label="Motion Sound Controls">
+        
+        <!-- Sound Selector -->
+        <div class="sound-selector" role="radiogroup" aria-label="Sound auswählen">
+          <button class="sound-btn active" data-sound="lightsaber" role="radio" aria-checked="true" aria-label="Lichtschwert">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 2v20"/>
+              <path d="M8 6h8"/>
+              <path d="M8 10h8"/>
+              <path d="M8 14h8"/>
+              <path d="M8 18h8"/>
+            </svg>
+            <span>Lichtschwert</span>
+          </button>
+          <button class="sound-btn" data-sound="drill" role="radio" aria-checked="false" aria-label="Bohrmaschine">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 2v20"/>
+              <path d="M17 2h-10"/>
+              <path d="M15 6h-6"/>
+              <path d="M17 10h-10"/>
+              <path d="M15 14h-6"/>
+              <path d="M17 18h-10"/>
+              <path d="M12 22v-4"/>
+            </svg>
+            <span>Bohrmaschine</span>
+          </button>
+          <button class="sound-btn" data-sound="drum" role="radio" aria-checked="false" aria-label="Trommel">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <ellipse cx="12" cy="12" rx="10" ry="6"/>
+              <path d="M2 12c0-3.3 2.7-6 6-6s6 2.7 6 6-2.7 6-6 6"/>
+              <path d="M10 8v8"/>
+              <path d="M14 8v8"/>
+            </svg>
+            <span>Trommel</span>
+          </button>
+        </div>
+
+        <!-- Visualizer -->
+        <div class="visualizer" role="img" aria-label="Audio Visualizer">
+          <canvas id="visualizerCanvas"></canvas>
+        </div>
+
+        <!-- Motion Indicators -->
+        <div class="motion-indicator" aria-live="polite" aria-label="Bewegungswerte">
+          <div class="motion-axis">
+            <label>X (Neigung)</label>
+            <div class="value low" id="motionX">0.0</div>
+          </div>
+          <div class="motion-axis">
+            <label>Y (Rollen)</label>
+            <div class="value low" id="motionY">0.0</div>
+          </div>
+          <div class="motion-axis">
+            <label>Z (Schütteln)</label>
+            <div class="value low" id="motionZ">0.0</div>
+          </div>
+          <div class="motion-axis">
+            <label>Gesamt</label>
+            <div class="value low" id="motionTotal">0.0</div>
+          </div>
+        </div>
+
+        <!-- Sensitivity Control -->
+        <div class="sensitivity-control">
+          <label for="sensitivity">Empfindlichkeit</label>
+          <input type="range" id="sensitivity" min="0.1" max="3" step="0.1" value="1">
+          <span class="value" id="sensitivityValue">1.0×</span>
+        </div>
+
+        <!-- Status -->
+        <div class="status-display waiting" id="statusDisplay" role="status" aria-live="polite">
+          Tippe auf "Berechtigung erteilen" um zu starten
+        </div>
+
+        <!-- Permission Button (iOS) -->
+        <button class="permission-btn" id="permissionBtn" style="display: none;">
+          Berechtigung erteilen (iOS)
+        </button>
+
+        <!-- Info Card -->
+        <div class="info-card">
+          <h3>💡 Wie es funktioniert</h3>
+          <ul>
+            <li>Bewege das Handy in der Hand (schütteln, schwingen, drehen)</li>
+            <li>Die Beschleunigung löst Sounds aus — je heftiger, desto lauter/schneller</li>
+            <li>Lichtschwert: Schwing-Bewegungen erzeugen den typischen "Swoosh"</li>
+            <li>Bohrmaschine: Schnelles Schütteln = Bohren</li>
+            <li>Trommel: Schlag-Bewegungen = Trommelschläge</li>
+          </ul>
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>&copy; 2026 PE1. <a href="https://github.com/BavarianOne/PE1">GitHub</a></p>
+  </footer>
+
+  <script src="app.js"></script>
+  <script>
+    // ===== Motion Sounds Logic =====
+    
+    // Audio Context (lazy init on user interaction)
+    let audioCtx = null;
+    let analyser = null;
+    let animationFrame = null;
+    
+    // Current sound mode
+    let currentSound = 'lightsaber';
+    
+    // Sensitivity multiplier
+    let sensitivity = 1.0;
+    
+    // Motion tracking
+    let lastMotionTime = 0;
+    let motionHistory = [];
+    let isPlaying = false;
+    
+    // Sound engines
+    const soundEngines = {
+      lightsaber: {
+        // Lightsaber hum + swing sounds
+        humOsc: null,
+        humGain: null,
+        swingGain: null,
+        lastSwingTime: 0,
+        baseFreq: 120,
+        
+        init(ctx) {
+          this.humGain = ctx.createGain();
+          this.humGain.gain.value = 0;
+          this.humGain.connect(ctx.destination);
+          
+          this.humOsc = ctx.createOscillator();
+          this.humOsc.type = 'sawtooth';
+          this.humOsc.frequency.value = this.baseFreq;
+          this.humOsc.connect(this.humGain);
+          this.humOsc.start();
+          
+          // Filter for saber character
+          this.filter = ctx.createBiquadFilter();
+          this.filter.type = 'lowpass';
+          this.filter.frequency.value = 800;
+          this.filter.Q.value = 2;
+          this.humOsc.disconnect();
+          this.humOsc.connect(this.filter);
+          this.filter.connect(this.humGain);
+        },
+        
+        update(motion, dt) {
+          if (!this.humGain) return;
+          
+          const intensity = Math.min(motion * sensitivity * 2, 1);
+          
+          // Hum volume follows motion
+          const targetHumVol = 0.05 + intensity * 0.3;
+          this.humGain.gain.linearRampToValueAtTarget(targetHumVol, audioCtx.currentTime + 0.05);
+          
+          // Pitch modulation
+          this.humOsc.frequency.linearRampToValueAtTarget(
+            this.baseFreq + intensity * 80, 
+            audioCtx.currentTime + 0.05
+          );
+          
+          // Swing detection - rapid acceleration change
+          if (motion > 0.8 * sensitivity && audioCtx.currentTime - this.lastSwingTime > 0.15) {
+            this.triggerSwing(intensity);
+            this.lastSwingTime = audioCtx.currentTime;
+          }
+        },
+        
+        triggerSwing(intensity) {
+          if (!audioCtx) return;
+          
+          // Create swing sound
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          const filter = audioCtx.createBiquadFilter();
+          
+          osc.type = 'sawtooth';
+          osc.frequency.value = 200 + intensity * 400;
+          
+          filter.type = 'bandpass';
+          filter.frequency.value = 800 + intensity * 1200;
+          filter.Q.value = 5;
+          
+          gain.gain.value = 0;
+          
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(audioCtx.destination);
+          
+          osc.start();
+          
+          // Pitch sweep down (doppler-like)
+          osc.frequency.exponentialRampToValueAtTarget(100, audioCtx.currentTime + 0.3);
+          filter.frequency.exponentialRampToValueAtTarget(300, audioCtx.currentTime + 0.3);
+          
+          // Volume envelope
+          gain.gain.linearRampToValueAtTarget(0.4 * intensity, audioCtx.currentTime + 0.01);
+          gain.gain.exponentialRampToValueAtTarget(0.001, audioCtx.currentTime + 0.4);
+          
+          // Cleanup
+          setTimeout(() => {
+            osc.stop();
+            osc.disconnect();
+            filter.disconnect();
+            gain.disconnect();
+          }, 500);
+        },
+        
+        stop() {
+          if (this.humOsc) {
+            this.humOsc.stop();
+            this.humOsc.disconnect();
+          }
+          if (this.filter) this.filter.disconnect();
+          if (this.humGain) this.humGain.disconnect();
+          this.humOsc = null;
+          this.humGain = null;
+          this.filter = null;
+        }
+      },
+      
+      drill: {
+        // Drill motor sound
+        motorOsc: null,
+        motorGain: null,
+        clickOsc: null,
+        lastClickTime: 0,
+        rpm: 0,
+        targetRpm: 0,
+        
+        init(ctx) {
+          this.motorGain = ctx.createGain();
+          this.motorGain.gain.value = 0;
+          this.motorGain.connect(ctx.destination);
+          
+          this.motorOsc = ctx.createOscillator();
+          this.motorOsc.type = 'square';
+          this.motorOsc.frequency.value = 60;
+          this.motorOsc.connect(this.motorGain);
+          this.motorOsc.start();
+          
+          // Harmonic layer
+          this.harmonicOsc = ctx.createOscillator();
+          this.harmonicOsc.type = 'sawtooth';
+          this.harmonicOsc.frequency.value = 120;
+          const harmonicGain = ctx.createGain();
+          harmonicGain.gain.value = 0;
+          this.harmonicOsc.connect(harmonicGain);
+          harmonicGain.connect(ctx.destination);
+          this.harmonicOsc.start();
+          this.harmonicGain = harmonicGain;
+          
+          // Low-pass for motor character
+          this.filter = ctx.createBiquadFilter();
+          this.filter.type = 'lowpass';
+          this.filter.frequency.value = 500;
+          this.filter.Q.value = 1;
+          this.motorOsc.disconnect();
+          this.motorOsc.connect(this.filter);
+          this.filter.connect(this.motorGain);
+        },
+        
+        update(motion, dt) {
+          if (!this.motorGain) return;
+          
+          // Target RPM based on motion intensity
+          this.targetRpm = motion * sensitivity * 800; // up to 800 Hz base
+          
+          // Smooth RPM change
+          this.rpm += (this.targetRpm - this.rpm) * 0.1;
+          
+          const rpmNorm = Math.min(this.rpm / 800, 1);
+          const vol = 0.1 + rpmNorm * 0.5;
+          
+          this.motorGain.gain.linearRampToValueAtTarget(vol, audioCtx.currentTime + 0.05);
+          this.harmonicGain.gain.linearRampToValueAtTarget(vol * 0.3, audioCtx.currentTime + 0.05);
+          
+          this.motorOsc.frequency.linearRampToValueAtTarget(40 + this.rpm, audioCtx.currentTime + 0.05);
+          this.harmonicOsc.frequency.linearRampToValueAtTarget(80 + this.rpm * 2, audioCtx.currentTime + 0.05);
+          this.filter.frequency.linearRampToValueAtTarget(300 + this.rpm * 0.5, audioCtx.currentTime + 0.05);
+          
+          // Mechanical clicks at high RPM
+          if (this.rpm > 200 && audioCtx.currentTime - this.lastClickTime > 60 / this.rpm) {
+            this.triggerClick();
+            this.lastClickTime = audioCtx.currentTime;
+          }
+        },
+        
+        triggerClick() {
+          if (!audioCtx) return;
+          
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          const filter = audioCtx.createBiquadFilter();
+          
+          osc.type = 'square';
+          osc.frequency.value = 800 + Math.random() * 400;
+          
+          filter.type = 'highpass';
+          filter.frequency.value = 2000;
+          
+          gain.gain.value = 0;
+          
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(audioCtx.destination);
+          
+          osc.start();
+          gain.gain.linearRampToValueAtTarget(0.15, audioCtx.currentTime + 0.001);
+          gain.gain.exponentialRampToValueAtTarget(0.001, audioCtx.currentTime + 0.05);
+          
+          setTimeout(() => {
+            osc.stop();
+            osc.disconnect();
+            filter.disconnect();
+            gain.disconnect();
+          }, 100);
+        },
+        
+        stop() {
+          if (this.motorOsc) {
+            this.motorOsc.stop();
+            this.motorOsc.disconnect();
+          }
+          if (this.harmonicOsc) {
+            this.harmonicOsc.stop();
+            this.harmonicOsc.disconnect();
+          }
+          if (this.filter) this.filter.disconnect();
+          if (this.motorGain) this.motorGain.disconnect();
+          if (this.harmonicGain) this.harmonicGain.disconnect();
+          this.motorOsc = null;
+          this.harmonicOsc = null;
+          this.motorGain = null;
+          this.harmonicGain = null;
+          this.filter = null;
+        }
+      },
+      
+      drum: {
+        // Drum kit - triggers on impact detection
+        lastImpactTime: 0,
+        impactCooldown: 0.08, // min time between hits
+        
+        init(ctx) {
+          // No continuous sound for drums
+        },
+        
+        update(motion, dt) {
+          // Detect impacts (sudden acceleration spikes)
+          const now = audioCtx.currentTime;
+          
+          // Simple impact detection: high motion with rapid onset
+          if (motion > 1.2 * sensitivity && now - this.lastImpactTime > this.impactCooldown) {
+            // Determine drum type based on motion vector
+            const historyLen = motionHistory.length;
+            if (historyLen > 2) {
+              const prev = motionHistory[historyLen - 2];
+              const delta = motion - prev;
+              if (delta > 0.5 * sensitivity) {
+                this.triggerDrum(motion, delta);
+                this.lastImpactTime = now;
+              }
+            }
+          }
+        },
+        
+        triggerDrum(motion, delta) {
+          if (!audioCtx) return;
+          
+          const intensity = Math.min(motion * sensitivity, 2);
+          
+          // Kick drum on strong downward motion
+          if (delta > 1.0 * sensitivity) {
+            this.playKick(intensity);
+          }
+          // Snare on sharp horizontal motion
+          else if (delta > 0.7 * sensitivity) {
+            this.playSnare(intensity);
+          }
+          // Hi-hat on lighter taps
+          else {
+            this.playHat(intensity);
+          }
+        },
+        
+        playKick(intensity) {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          
+          osc.type = 'sine';
+          osc.frequency.value = 150;
+          osc.frequency.exponentialRampToValueAtTarget(40, audioCtx.currentTime + 0.15);
+          
+          gain.gain.value = 0;
+          gain.gain.linearRampToValueAtTarget(0.8 * intensity, audioCtx.currentTime + 0.001);
+          gain.gain.exponentialRampToValueAtTarget(0.001, audioCtx.currentTime + 0.3);
+          
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          setTimeout(() => { osc.stop(); osc.disconnect(); gain.disconnect(); }, 400);
+        },
+        
+        playSnare(intensity) {
+          // Noise burst + tone
+          const bufferSize = audioCtx.sampleRate * 0.15;
+          const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.1));
+          }
+          
+          const noise = audioCtx.createBufferSource();
+          noise.buffer = buffer;
+          
+          const noiseGain = audioCtx.createGain();
+          const noiseFilter = audioCtx.createBiquadFilter();
+          noiseFilter.type = 'bandpass';
+          noiseFilter.frequency.value = 2000;
+          noiseFilter.Q.value = 2;
+          
+          // Tone layer
+          const osc = audioCtx.createOscillator();
+          osc.type = 'triangle';
+          osc.frequency.value = 180;
+          osc.frequency.exponentialRampToValueAtTarget(100, audioCtx.currentTime + 0.1);
+          
+          const oscGain = audioCtx.createGain();
+          
+          noise.connect(noiseFilter);
+          noiseFilter.connect(noiseGain);
+          noiseGain.connect(audioCtx.destination);
+          
+          osc.connect(oscGain);
+          oscGain.connect(audioCtx.destination);
+          
+          noiseGain.gain.value = 0;
+          noiseGain.gain.linearRampToValueAtTarget(0.4 * intensity, audioCtx.currentTime + 0.001);
+          noiseGain.gain.exponentialRampToValueAtTarget(0.001, audioCtx.currentTime + 0.15);
+          
+          oscGain.gain.value = 0;
+          oscGain.gain.linearRampToValueAtTarget(0.2 * intensity, audioCtx.currentTime + 0.001);
+          oscGain.gain.exponentialRampToValueAtTarget(0.001, audioCtx.currentTime + 0.1);
+          
+          noise.start();
+          osc.start();
+          setTimeout(() => { 
+            noise.stop(); noise.disconnect(); noiseFilter.disconnect(); noiseGain.disconnect();
+            osc.stop(); osc.disconnect(); oscGain.disconnect();
+          }, 200);
+        },
+        
+        playHat(intensity) {
+          const bufferSize = audioCtx.sampleRate * 0.05;
+          const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.05));
+          }
+          
+          const noise = audioCtx.createBufferSource();
+          noise.buffer = buffer;
+          
+          const filter = audioCtx.createBiquadFilter();
+          filter.type = 'highpass';
+          filter.frequency.value = 8000;
+          
+          const gain = audioCtx.createGain();
+          
+          noise.connect(filter);
+          filter.connect(gain);
+          gain.connect(audioCtx.destination);
+          
+          gain.gain.value = 0;
+          gain.gain.linearRampToValueAtTarget(0.2 * intensity, audioCtx.currentTime + 0.001);
+          gain.gain.exponentialRampToValueAtTarget(0.001, audioCtx.currentTime + 0.05);
+          
+          noise.start();
+          setTimeout(() => { noise.stop(); noise.disconnect(); filter.disconnect(); gain.disconnect(); }, 100);
+        },
+        
+        stop() {}
+      }
+    };
+    
+    // DOM Elements
+    const soundBtns = document.querySelectorAll('.sound-btn');
+    const canvas = document.getElementById('visualizerCanvas');
+    const ctx = canvas.getContext('2d');
+    const motionX = document.getElementById('motionX');
+    const motionY = document.getElementById('motionY');
+    const motionZ = document.getElementById('motionZ');
+    const motionTotal = document.getElementById('motionTotal');
+    const sensitivitySlider = document.getElementById('sensitivity');
+    const sensitivityValue = document.getElementById('sensitivityValue');
+    const statusDisplay = document.getElementById('statusDisplay');
+    const permissionBtn = document.getElementById('permissionBtn');
+    
+    // Canvas setup
+    function resizeCanvas() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width * window.devicePixelRatio;
+      canvas.height = rect.height * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+      canvas.style.width = rect.width + 'px';
+      canvas.style.height = rect.height + 'px';
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    
+    // Visualizer
+    function drawVisualizer() {
+      if (!analyser) {
+        // Draw idle state
+        ctx.clearRect(0, 0, canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
+        const w = canvas.width / window.devicePixelRatio;
+        const h = canvas.height / window.devicePixelRatio;
+        ctx.fillStyle = 'rgba(249, 115, 22, 0.1)';
+        ctx.fillRect(0, 0, w, h);
+        requestAnimationFrame(drawVisualizer);
+        return;
+      }
+      
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+      analyser.getByteFrequencyData(dataArray);
+      
+      const w = canvas.width / window.devicePixelRatio;
+      const h = canvas.height / window.devicePixelRatio;
+      
+      ctx.clearRect(0, 0, w, h);
+      
+      // Gradient background
+      const grad = ctx.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, 'rgba(15, 23, 42, 0.9)');
+      grad.addColorStop(1, 'rgba(15, 23, 42, 1)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+      
+      // Bars
+      const barWidth = (w / bufferLength) * 2.5;
+      let x = 0;
+      
+      for (let i = 0; i < bufferLength; i++) {
+        const barHeight = (dataArray[i] / 255) * h * 0.8;
+        const hue = 20 + (i / bufferLength) * 40; // orange to red
+        const alpha = 0.4 + (dataArray[i] / 255) * 0.6;
+        
+        ctx.fillStyle = `hsla(${hue}, 100%, 50%, ${alpha})`;
+        ctx.fillRect(x, h - barHeight, barWidth, barHeight);
+        
+        // Mirror at bottom
+        ctx.fillStyle = `hsla(${hue}, 100%, 50%, ${alpha * 0.3})`;
+        ctx.fillRect(x, h - barHeight * 0.3, barWidth, barHeight * 0.3);
+        
+        x += barWidth + 1;
+      }
+      
+      // Center line glow when active
+      if (isPlaying) {
+        ctx.strokeStyle = 'rgba(249, 115, 22, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, h / 2);
+        ctx.lineTo(w, h / 2);
+        ctx.stroke();
+      }
+      
+      requestAnimationFrame(drawVisualizer);
+    }
+    
+    // Audio Context init
+    function initAudio() {
+      if (audioCtx) return;
+      
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      
+      // Analyser for visualizer
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.8;
+      analyser.connect(audioCtx.destination);
+      
+      // Initialize current sound engine
+      const engine = soundEngines[currentSound];
+      if (engine.init) engine.init(audioCtx);
+      
+      // Resume on interaction
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      
+      isPlaying = true;
+      statusDisplay.textContent = 'Aktiv — Bewege dein Handy!';
+      statusDisplay.className = 'status-display active';
+      permissionBtn.style.display = 'none';
+      
+      drawVisualizer();
+    }
+    
+    // Motion handling
+    let lastAccel = { x: 0, y: 0, z: 0 };
+    let lastTime = performance.now();
+    
+    function handleMotion(event) {
+      if (!audioCtx || audioCtx.state !== 'running') return;
+      
+      const accel = event.accelerationIncludingGravity || event.acceleration;
+      if (!accel) return;
+      
+      const now = performance.now();
+      const dt = (now - lastTime) / 1000;
+      lastTime = now;
+      
+      // Calculate motion magnitude
+      const x = accel.x || 0;
+      const y = accel.y || 0;
+      const z = accel.z || 0;
+      
+      // High-pass filter to remove gravity
+      const dx = x - lastAccel.x;
+      const dy = y - lastAccel.y;
+      const dz = z - lastAccel.z;
+      
+      const motion = Math.sqrt(dx*dx + dy*dy + dz*dz);
+      
+      lastAccel = { x, y, z };
+      
+      // Update UI
+      motionX.textContent = dx.toFixed(1);
+      motionY.textContent = dy.toFixed(1);
+      motionZ.textContent = dz.toFixed(1);
+      motionTotal.textContent = motion.toFixed(1);
+      
+      // Color coding
+      [motionX, motionY, motionZ, motionTotal].forEach(el => {
+        const val = parseFloat(el.textContent);
+        el.className = 'value ' + (val > 1.5 ? 'high' : val > 0.5 ? 'med' : 'low');
+      });
+      
+      // Store history for drum detection
+      motionHistory.push(motion);
+      if (motionHistory.length > 50) motionHistory.shift();
+      
+      // Update sound engine
+      const engine = soundEngines[currentSound];
+      if (engine.update) engine.update(motion, dt);
+    }
+    
+    // Sound selection
+    soundBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        // Init audio on first interaction
+        initAudio();
+        
+        // Update UI
+        soundBtns.forEach(b => {
+          b.classList.remove('active');
+          b.setAttribute('aria-checked', 'false');
+        });
+        btn.classList.add('active');
+        btn.setAttribute('aria-checked', 'true');
+        
+        // Stop previous engine
+        const prevEngine = soundEngines[currentSound];
+        if (prevEngine.stop) prevEngine.stop();
+        
+        // Start new engine
+        currentSound = btn.dataset.sound;
+        const newEngine = soundEngines[currentSound];
+        if (newEngine.init) newEngine.init(audioCtx);
+        
+        logEvent('sound-change', { sound: currentSound });
+      });
+    });
+    
+    // Sensitivity control
+    sensitivitySlider.addEventListener('input', (e) => {
+      sensitivity = parseFloat(e.target.value);
+      sensitivityValue.textContent = sensitivity.toFixed(1) + '×';
+    });
+    
+    // iOS Permission
+    async function requestPermission() {
+      if (typeof DeviceMotionEvent.requestPermission === 'function') {
+        try {
+          const permission = await DeviceMotionEvent.requestPermission();
+          if (permission === 'granted') {
+            startMotionListening();
+            permissionBtn.style.display = 'none';
+            statusDisplay.textContent = 'Berechtigung erteilt — bewege dein Handy!';
+            statusDisplay.className = 'status-display active';
+            initAudio();
+          } else {
+            statusDisplay.textContent = 'Berechtigung verweigert';
+            statusDisplay.className = 'status-display error';
+          }
+        } catch (err) {
+          console.error('Permission error:', err);
+          statusDisplay.textContent = 'Fehler bei der Berechtigungsanfrage';
+          statusDisplay.className = 'status-display error';
+        }
+      } else {
+        startMotionListening();
+        initAudio();
+      }
+    }
+    
+    function startMotionListening() {
+      window.addEventListener('devicemotion', handleMotion);
+      logEvent('motion-start', {});
+    }
+    
+    permissionBtn.addEventListener('click', requestPermission);
+    
+    // Auto-start on non-iOS
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const needsPermission = isIOS && typeof DeviceMotionEvent?.requestPermission === 'function';
+    
+    if (!needsPermission) {
+      permissionBtn.style.display = 'none';
+      // Don't start yet - wait for user interaction (audio policy)
+      statusDisplay.textContent = 'Tippe auf einen Sound um zu starten';
+    } else {
+      permissionBtn.style.display = 'block';
+    }
+    
+    // Cleanup on page hide
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        const engine = soundEngines[currentSound];
+        if (engine.stop) engine.stop();
+        if (audioCtx) {
+          audioCtx.suspend();
+        }
+        window.removeEventListener('devicemotion', handleMotion);
+      } else if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+        window.addEventListener('devicemotion', handleMotion);
+        const engine = soundEngines[currentSound];
+        if (engine.init) engine.init(audioCtx);
+      }
+    });
+    
+    // Prevent sleep while active
+    let wakeLock = null;
+    async function requestWakeLock() {
+      try {
+        wakeLock = await navigator.wakeLock.request('screen');
+      } catch (err) {
+        console.log('Wake lock failed:', err);
+      }
+    }
+    
+    // Request wake lock on first interaction
+    document.addEventListener('click', requestWakeLock, { once: true });
+    
+    function logEvent(type, data) {
+      console.log(`[MotionSounds] ${type}`, data);
+    }
+  </script>
+</body>
+</html>
