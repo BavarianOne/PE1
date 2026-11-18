@@ -733,7 +733,7 @@
     }
     
     // Audio Context init
-    function initAudio() {
+    async function initAudio() {
       if (audioCtx) return;
       
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -744,14 +744,14 @@
       analyser.smoothingTimeConstant = 0.8;
       analyser.connect(audioCtx.destination);
       
-      // Initialize current sound engine
+      // Resume on interaction - await it!
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
+      
+      // Initialize current sound engine AFTER resume
       const engine = soundEngines[currentSound];
       if (engine.init) engine.init(audioCtx);
-      
-      // Resume on interaction
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-      }
       
       isPlaying = true;
       statusDisplay.textContent = 'Aktiv — Bewege dein Handy!';
@@ -766,7 +766,13 @@
     let lastTime = performance.now();
     
     function handleMotion(event) {
-      if (!audioCtx || audioCtx.state !== 'running') return;
+      if (!audioCtx) return;
+      
+      // Ensure AudioContext is running
+      if (audioCtx.state !== 'running') {
+        audioCtx.resume().catch(console.error);
+        return;
+      }
       
       const accel = event.accelerationIncludingGravity || event.acceleration;
       if (!accel) return;
@@ -812,9 +818,9 @@
     
     // Sound selection
     soundBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         // Init audio on first interaction
-        initAudio();
+        await initAudio();
         
         // Update UI
         soundBtns.forEach(b => {
@@ -853,7 +859,7 @@
             permissionBtn.style.display = 'none';
             statusDisplay.textContent = 'Berechtigung erteilt — bewege dein Handy!';
             statusDisplay.className = 'status-display active slide-up stagger-3';
-            initAudio();
+            await initAudio();
           } else {
             statusDisplay.textContent = 'Berechtigung verweigert';
             statusDisplay.className = 'status-display error slide-up stagger-3';
@@ -865,7 +871,7 @@
         }
       } else {
         startMotionListening();
-        initAudio();
+        await initAudio();
       }
     }
     
@@ -889,7 +895,7 @@
     }
     
     // Cleanup on page hide
-    document.addEventListener('visibilitychange', () => {
+    document.addEventListener('visibilitychange', async () => {
       if (document.hidden) {
         const engine = soundEngines[currentSound];
         if (engine.stop) engine.stop();
@@ -898,7 +904,7 @@
         }
         window.removeEventListener('devicemotion', handleMotion);
       } else if (audioCtx && audioCtx.state === 'suspended') {
-        audioCtx.resume();
+        await audioCtx.resume();
         window.addEventListener('devicemotion', handleMotion);
         const engine = soundEngines[currentSound];
         if (engine.init) engine.init(audioCtx);

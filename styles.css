@@ -477,6 +477,7 @@ body {
 .feature-icon--blue { background: var(--color-accent); }
 .feature-icon--green { background: var(--color-success); }
 .feature-icon--amber { background: var(--color-warning); }
+.feature-icon--orange { background: #f97316; }
 .feature-icon--purple { background: #8b5cf6; }
 .feature-icon--pink { background: #ec4899; }
 .feature-icon--cyan { background: #06b6d4; }
