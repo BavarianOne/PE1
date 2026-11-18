@@ -334,10 +334,10 @@
           
           // Hum volume follows motion
           const targetHumVol = 0.05 + intensity * 0.3;
-          this.humGain.gain.linearRampToValueAtTarget(targetHumVol, audioCtx.currentTime + 0.05);
+          this.humGain.gain.linearRampToValueAtTime(targetHumVol, audioCtx.currentTime + 0.05);
           
           // Pitch modulation
-          this.humOsc.frequency.linearRampToValueAtTarget(
+          this.humOsc.frequency.linearRampToValueAtTime(
             this.baseFreq + intensity * 80, 
             audioCtx.currentTime + 0.05
           );
@@ -373,12 +373,12 @@
           osc.start();
           
           // Pitch sweep down (doppler-like)
-          osc.frequency.exponentialRampToValueAtTarget(100, audioCtx.currentTime + 0.3);
-          filter.frequency.exponentialRampToValueAtTarget(300, audioCtx.currentTime + 0.3);
+          osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.3);
+          filter.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.3);
           
           // Volume envelope
-          gain.gain.linearRampToValueAtTarget(0.4 * intensity, audioCtx.currentTime + 0.01);
-          gain.gain.exponentialRampToValueAtTarget(0.001, audioCtx.currentTime + 0.4);
+          gain.gain.linearRampToValueAtTime(0.4 * intensity, audioCtx.currentTime + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
           
           // Cleanup
           setTimeout(() => {
@@ -455,12 +455,12 @@
           const rpmNorm = Math.min(this.rpm / 800, 1);
           const vol = 0.1 + rpmNorm * 0.5;
           
-          this.motorGain.gain.linearRampToValueAtTarget(vol, audioCtx.currentTime + 0.05);
-          this.harmonicGain.gain.linearRampToValueAtTarget(vol * 0.3, audioCtx.currentTime + 0.05);
+          this.motorGain.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + 0.05);
+          this.harmonicGain.gain.linearRampToValueAtTime(vol * 0.3, audioCtx.currentTime + 0.05);
           
-          this.motorOsc.frequency.linearRampToValueAtTarget(40 + this.rpm, audioCtx.currentTime + 0.05);
-          this.harmonicOsc.frequency.linearRampToValueAtTarget(80 + this.rpm * 2, audioCtx.currentTime + 0.05);
-          this.filter.frequency.linearRampToValueAtTarget(300 + this.rpm * 0.5, audioCtx.currentTime + 0.05);
+          this.motorOsc.frequency.linearRampToValueAtTime(40 + this.rpm, audioCtx.currentTime + 0.05);
+          this.harmonicOsc.frequency.linearRampToValueAtTime(80 + this.rpm * 2, audioCtx.currentTime + 0.05);
+          this.filter.frequency.linearRampToValueAtTime(300 + this.rpm * 0.5, audioCtx.currentTime + 0.05);
           
           // Mechanical clicks at high RPM
           if (this.rpm > 200 && audioCtx.currentTime - this.lastClickTime > 60 / this.rpm) {
@@ -489,8 +489,8 @@
           gain.connect(audioCtx.destination);
           
           osc.start();
-          gain.gain.linearRampToValueAtTarget(0.15, audioCtx.currentTime + 0.001);
-          gain.gain.exponentialRampToValueAtTarget(0.001, audioCtx.currentTime + 0.05);
+          gain.gain.linearRampToValueAtTime(0.15, audioCtx.currentTime + 0.001);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
           
           setTimeout(() => {
             osc.stop();
@@ -573,11 +573,11 @@
           
           osc.type = 'sine';
           osc.frequency.value = 150;
-          osc.frequency.exponentialRampToValueAtTarget(40, audioCtx.currentTime + 0.15);
+          osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.15);
           
           gain.gain.value = 0;
-          gain.gain.linearRampToValueAtTarget(0.8 * intensity, audioCtx.currentTime + 0.001);
-          gain.gain.exponentialRampToValueAtTarget(0.001, audioCtx.currentTime + 0.3);
+          gain.gain.linearRampToValueAtTime(0.8 * intensity, audioCtx.currentTime + 0.001);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
           
           osc.connect(gain);
           gain.connect(audioCtx.destination);
@@ -607,7 +607,7 @@
           const osc = audioCtx.createOscillator();
           osc.type = 'triangle';
           osc.frequency.value = 180;
-          osc.frequency.exponentialRampToValueAtTarget(100, audioCtx.currentTime + 0.1);
+          osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
           
           const oscGain = audioCtx.createGain();
           
@@ -619,12 +619,12 @@
           oscGain.connect(audioCtx.destination);
           
           noiseGain.gain.value = 0;
-          noiseGain.gain.linearRampToValueAtTarget(0.4 * intensity, audioCtx.currentTime + 0.001);
-          noiseGain.gain.exponentialRampToValueAtTarget(0.001, audioCtx.currentTime + 0.15);
+          noiseGain.gain.linearRampToValueAtTime(0.4 * intensity, audioCtx.currentTime + 0.001);
+          noiseGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
           
           oscGain.gain.value = 0;
-          oscGain.gain.linearRampToValueAtTarget(0.2 * intensity, audioCtx.currentTime + 0.001);
-          oscGain.gain.exponentialRampToValueAtTarget(0.001, audioCtx.currentTime + 0.1);
+          oscGain.gain.linearRampToValueAtTime(0.2 * intensity, audioCtx.currentTime + 0.001);
+          oscGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
           
           noise.start();
           osc.start();
@@ -656,8 +656,8 @@
           gain.connect(audioCtx.destination);
           
           gain.gain.value = 0;
-          gain.gain.linearRampToValueAtTarget(0.2 * intensity, audioCtx.currentTime + 0.001);
-          gain.gain.exponentialRampToValueAtTarget(0.001, audioCtx.currentTime + 0.05);
+          gain.gain.linearRampToValueAtTime(0.2 * intensity, audioCtx.currentTime + 0.001);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
           
           noise.start();
           setTimeout(() => { noise.stop(); noise.disconnect(); filter.disconnect(); gain.disconnect(); }, 100);
@@ -1010,8 +1010,8 @@
             osc.connect(gain);
             gain.connect(audioCtx.destination);
             osc.start();
-            gain.gain.linearRampToValueAtTarget(0.3, audioCtx.currentTime + 0.01);
-            gain.gain.exponentialRampToValueAtTarget(0.001, audioCtx.currentTime + 0.5);
+            gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
             osc.stop(audioCtx.currentTime + 0.6);
             logEvent('test-beep', { freq: 440, duration: 0.5 });
           }
