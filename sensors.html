@@ -833,7 +833,9 @@
       try {
         btn.disabled = true;
         btn.textContent = 'ANFRAGE...';
+        console.log('Requesting microphone access...');
         const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false }, video: false });
+        console.log('Microphone access granted', stream);
 
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         analyser = audioContext.createAnalyser();
@@ -858,11 +860,11 @@
         btn.style.color = 'var(--hud-bg)';
       } catch (e) {
         console.error('Mic error:', e);
-        document.getElementById('valAudioStatus').textContent = 'Verweigert/Fehler';
+        document.getElementById('valAudioStatus').textContent = 'Verweigert/Fehler: ' + e.message;
         document.getElementById('indAudio').classList.add('error');
         document.getElementById('panelAudio').classList.add('error');
         btn.disabled = false;
-        btn.textContent = 'FEHLER';
+        btn.textContent = 'FEHLER: ' + e.name;
       }
     }
 
@@ -900,13 +902,16 @@
 
       console.log('requestAllPermissions called');
 
-      // iOS DeviceMotion permission
+      // iOS DeviceMotion permission (required for devicemotion events)
+      let motionGranted = true;
       if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
         try {
           btn.disabled = true;
           btn.textContent = 'BEWEGUNG ANFRAGEN...';
           const response = await DeviceMotionEvent.requestPermission();
-          if (response !== 'granted') {
+          console.log('DeviceMotion permission response:', response);
+          motionGranted = response === 'granted';
+          if (!motionGranted) {
             text.textContent = 'Bewegungssensor-Zugriff verweigert. Einige Funktionen nicht verfügbar.';
             btn.disabled = false;
             btn.textContent = 'ERNEUT VERSUCHEN';
@@ -914,22 +919,32 @@
           }
         } catch (e) {
           console.error('DeviceMotion permission error:', e);
+          motionGranted = false;
         }
+      } else {
+        console.log('DeviceMotion permission not required (non-iOS)');
       }
 
-      // iOS DeviceOrientation permission (iOS 13+)
+      // iOS DeviceOrientation permission (required for deviceorientation events on iOS 13+)
+      let orientationGranted = true;
       if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
         try {
           btn.textContent = 'AUSRICHTUNG ANFRAGEN...';
           const response = await DeviceOrientationEvent.requestPermission();
-          if (response !== 'granted') {
+          console.log('DeviceOrientation permission response:', response);
+          orientationGranted = response === 'granted';
+          if (!orientationGranted) {
             text.textContent = 'Ausrichtungssensor-Zugriff verweigert. Kompass nicht verfügbar.';
           }
         } catch (e) {
           console.error('DeviceOrientation permission error:', e);
+          orientationGranted = false;
         }
+      } else {
+        console.log('DeviceOrientation permission not required (non-iOS)');
       }
 
+      // Always initialize sensors - event listeners will just not fire if permissions denied
       initAllSensors();
       sensorsEnabled = true;
       panel.style.display = 'none';
