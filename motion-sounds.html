@@ -299,452 +299,193 @@
     // Sound engines
     const soundEngines = {
       lightsaber: {
-                                // Lightsaber hum + swing + clash sounds (optimized: distortion, high-Q filter, detuned saws)
-                                humOscA: null,          // Primary sawtooth (55Hz)
-                                humOscB: null,          // Detuned sawtooth (56.5Hz) - beating
-                                humSubOsc: null,        // Sub-octave triangle (27.5Hz) - body
-                                humGain: null,          // Master hum gain (post-distortion)
-                                humFilter: null,        // High-Q lowpass (pre-distortion)
-                                distortion: null,       // WaveShaper for plasma growl
-      
-                                // Noise layer (continuous air/wind sound)
-                                noiseNode: null,
-                                noiseFilter: null,
-                                noiseGain: null,
-      
-                                // Stereo panner for spatial movement
-                                panner: null,
-      
-                                // Swing layer
-                                swingGain: null,
-                                lastSwingTime: 0,
-                                swingCount: 0,
-      
-                                // Clash/impact layer
-                                lastClashTime: 0,
-      
-                                baseFreq: 55,           // Fundamental frequency (A1 - deeper, cinematic)
-                                isActive: false,        // Track ignition state
+                                      // Ultra-minimal Lightsaber: triangle + sine, no distortion, no noise, filter 120-370Hz
+                                      humOscA: null,          // Triangle 55Hz (warm, dull)
+                                      humSubOsc: null,        // Sine 27.5Hz (pure sub)
+                                      humGain: null,          // Master gain
+                                      humFilter: null,        // Lowpass 120-370Hz, Q=4
+                                      panner: null,
+                                      baseFreq: 55,
+                                      isActive: false,
 
-                                // Create distortion curve for dirty plasma sound
-                                createDistortionCurve(amount) {
-                                  const k = typeof amount === 'number' ? amount : 50;
-                                  const n_samples = 44100;
-                                  const curve = new Float32Array(n_samples);
-                                  const deg = Math.PI / 180;
-                                  for (let i = 0; i < n_samples; ++i) {
-                                    const x = (i * 2) / n_samples - 1;
-                                    curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
-                                  }
-                                  return curve;
-                                },
+                                      init(ctx) {
+                                        // Master gain
+                                        this.humGain = ctx.createGain();
+                                        this.humGain.gain.value = 0;
+                                        this.humGain.connect(ctx.destination);
 
-                                init(ctx) {
-                                  // Master gain for hum (post-distortion)
-                                  this.humGain = ctx.createGain();
-                                  this.humGain.gain.value = 0;
-                                  this.humGain.connect(ctx.destination);
+                                        // Main filter: hard limited to 370Hz max (no highs possible!)
+                                        this.humFilter = ctx.createBiquadFilter();
+                                        this.humFilter.type = 'lowpass';
+                                        this.humFilter.frequency.value = 120;  // Idle: very deep
+                                        this.humFilter.Q.value = 4.0;          // Q=4 moderate
+                                        this.humFilter.connect(this.humGain);
 
-                                  // Main filter: lowpass for deep, heavy character (PRE-distortion)
-                                  this.humFilter = ctx.createBiquadFilter();
-                                  this.humFilter.type = 'lowpass';
-                                  this.humFilter.frequency.value = 180;  // Idle: very dark, heavy
-                                  this.humFilter.Q.value = 6.0;          // Q=6 moderate resonance
-                                  this.humFilter.connect(this.humGain);
+                                        // Stereo panner (optional)
+                                        if (ctx.createStereoPanner) {
+                                          this.panner = ctx.createStereoPanner();
+                                          this.panner.pan.value = 0;
+                                          this.humGain.disconnect();
+                                          this.humGain.connect(this.panner);
+                                          this.panner.connect(ctx.destination);
+                                        }
 
-                                  // Distortion (WaveShaper) for dirty plasma growl (POST-filter)
-                                  this.distortion = ctx.createWaveShaper();
-                                  this.distortion.curve = this.createDistortionCurve(20);  // k=20 for subtle grit
-                                  this.distortion.oversample = '2x';
-                                  // Insert distortion between filter and gain
-                                  this.humFilter.disconnect();
-                                  this.humFilter.connect(this.distortion);
-                                  this.distortion.connect(this.humGain);
+                                        // Triangle 55Hz - naturally dull/warm
+                                        this.humOscA = ctx.createOscillator();
+                                        this.humOscA.type = 'triangle';
+                                        this.humOscA.frequency.value = 55;
+                                        this.humOscA.connect(this.humFilter);
+                                        this.humOscA.start();
 
-                                  // Stereo panner for spatial Doppler effect
-                                  if (ctx.createStereoPanner) {
-                                    this.panner = ctx.createStereoPanner();
-                                    this.panner.pan.value = 0;
-                                    this.humGain.disconnect();
-                                    this.humGain.connect(this.panner);
-                                    this.panner.connect(ctx.destination);
-                                  }
+                                        // Sine 27.5Hz - pure sub pressure
+                                        this.humSubOsc = ctx.createOscillator();
+                                        this.humSubOsc.type = 'sine';
+                                        this.humSubOsc.frequency.value = 27.5;
+                                        this.humSubOsc.connect(this.humFilter);
+                                        this.humSubOsc.start();
 
-                                  // Primary oscillator - SAWTOOTH for rich base
-                                  this.humOscA = ctx.createOscillator();
-                                  this.humOscA.type = 'sawtooth';
-                                  this.humOscA.frequency.value = this.baseFreq;  // 55Hz
-                                  this.humOscA.connect(this.humFilter);
-                                  this.humOscA.start();
+                                        // NO distortion, NO noise, NO detuned saws
+                                      },
 
-                                  // Detuned oscillator - SAWTOOTH slightly sharp for beating/wobble
-                                  this.humOscB = ctx.createOscillator();
-                                  this.humOscB.type = 'sawtooth';
-                                  this.humOscB.frequency.value = 56.5;  // 56.5Hz - fixed detune for beating
-                                  this.humOscB.connect(this.humFilter);
-                                  this.humOscB.start();
+                                      activate() {
+                                        if (this.isActive || !audioCtx) return;
+                                        this.isActive = true;
+                                        const now = audioCtx.currentTime;
 
-                                  // Sub-oscillator - TRIANGLE one octave down for weight/body
-                                  this.humSubOsc = ctx.createOscillator();
-                                  this.humSubOsc.type = 'triangle';
-                                  this.humSubOsc.frequency.value = this.baseFreq * 0.5;  // 27.5Hz
-                                  this.humSubOsc.connect(this.humFilter);
-                                  this.humSubOsc.start();
+                                        // OSCs stay FIXED at 55Hz / 27.5Hz
 
-                                  // NO higher harmonics (2nd/3rd) - the distortion creates them naturally
-                                  // NO FM/AM LFOs - the beating detune + distortion provides movement
+                                        // Filter opens: 120Hz -> 370Hz (max 250Hz range)
+                                        this.humFilter.frequency.cancelScheduledValues(now);
+                                        this.humFilter.frequency.setValueAtTime(120, now);
+                                        this.humFilter.frequency.exponentialRampToValueAtTime(370, now + 0.15);
 
-                                  // --- NOISE LAYER (continuous air/wind) ---
-                                  const bufferSize = ctx.sampleRate * 2;
-                                  const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-                                  const output = noiseBuffer.getChannelData(0);
-                                  for (let i = 0; i < bufferSize; i++) {
-                                    output[i] = Math.random() * 2 - 1;
-                                  }
-                                  this.noiseNode = ctx.createBufferSource();
-                                  this.noiseNode.buffer = noiseBuffer;
-                                  this.noiseNode.loop = true;
+                                        // Volume ramp up
+                                        this.humGain.gain.cancelScheduledValues(now);
+                                        this.humGain.gain.setValueAtTime(0.0, now);
+                                        this.humGain.gain.linearRampToValueAtTime(0.5, now + 0.15);
+                                      },
 
-                                  this.noiseFilter = ctx.createBiquadFilter();
-                                  this.noiseFilter.type = 'lowpass';
-                                  this.noiseFilter.frequency.value = 600;  // Hard capped at 600Hz (no zisch)
-                                  this.noiseFilter.Q.value = 1.0;
+                                      deactivate() {
+                                        if (!this.isActive || !audioCtx) return;
+                                        this.isActive = false;
+                                        const now = audioCtx.currentTime;
 
-                                  this.noiseGain = ctx.createGain();
-                                  this.noiseGain.gain.value = 0.04;  // Very low background level
+                                        // Filter closes to 120Hz
+                                        this.humFilter.frequency.cancelScheduledValues(now);
+                                        this.humFilter.frequency.setValueAtTime(this.humFilter.frequency.value, now);
+                                        this.humFilter.frequency.exponentialRampToValueAtTime(120, now + 0.3);
 
-                                  this.noiseNode.connect(this.noiseFilter);
-                                  this.noiseFilter.connect(this.noiseGain);
-                                  if (this.panner) {
-                                    this.noiseGain.connect(this.panner);
-                                  } else {
-                                    this.noiseGain.connect(ctx.destination);
-                                  }
-                                  this.noiseNode.start();
+                                        // Volume down
+                                        this.humGain.gain.cancelScheduledValues(now);
+                                        this.humGain.gain.setValueAtTime(this.humGain.gain.value, now);
+                                        this.humGain.gain.linearRampToValueAtTime(0.0, now + 0.3);
+                                      },
 
-                                  // Swing master gain
-                                  this.swingGain = ctx.createGain();
-                                  this.swingGain.gain.value = 0;
-                                  if (this.panner) {
-                                    this.swingGain.connect(this.panner);
-                                  } else {
-                                    this.swingGain.connect(ctx.destination);
-                                  }
-                                },
+                                      update(motion, dt) {
+                                        if (!this.humGain) return;
 
-                                // Call when sound is activated (ignition) - noise burst + quick hum lock
-                                activate() {
-                                  if (this.isActive || !audioCtx) return;
-                                  this.isActive = true;
-                                  const now = audioCtx.currentTime;
+                                        const intensity = Math.min(motion * sensitivity * 2, 1);
+                                        const now = audioCtx.currentTime;
 
-                                  // IGNITION: Short noise burst (crack) then immediate stable hum
-                                  // 1. Noise burst for the "snap" of ignition
-                                  const igniteNoiseSize = audioCtx.sampleRate * 0.08;
-                                  const igniteBuffer = audioCtx.createBuffer(1, igniteNoiseSize, audioCtx.sampleRate);
-                                  const igniteData = igniteBuffer.getChannelData(0);
-                                  for (let i = 0; i < igniteNoiseSize; i++) {
-                                    const decay = Math.exp(-i / (igniteNoiseSize * 0.15));
-                                    igniteData[i] = (Math.random() * 2 - 1) * decay * 0.6;
-                                  }
-                                  const igniteNoise = audioCtx.createBufferSource();
-                                  igniteNoise.buffer = igniteBuffer;
-                                  const igniteFilter = audioCtx.createBiquadFilter();
-                                  igniteFilter.type = 'bandpass';
-                                  igniteFilter.frequency.value = 800;
-                                  igniteFilter.Q.value = 4;
-                                  const igniteGain = audioCtx.createGain();
-                                  igniteGain.gain.value = 0;
-                                  igniteNoise.connect(igniteFilter);
-                                  igniteFilter.connect(igniteGain);
-                                  if (this.panner) {
-                                    igniteGain.connect(this.panner);
-                                  } else {
-                                    igniteGain.connect(audioCtx.destination);
-                                  }
-                                  igniteGain.gain.setValueAtTime(0.0, now);
-                                  igniteGain.gain.linearRampToValueAtTime(0.4, now + 0.005);
-                                  igniteGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-                                  igniteNoise.start(now);
-                                  setTimeout(() => { igniteNoise.stop(); igniteNoise.disconnect(); igniteFilter.disconnect(); igniteGain.disconnect(); }, 200);
+                                        // Volume follows intensity
+                                        const baseVol = 0.05;
+                                        const intensityVol = intensity * 0.3;
+                                        this.humGain.gain.setTargetAtTime(baseVol + intensityVol, now, 0.05);
 
-                                  // 2. OSCs stay FIXED at base frequencies (NO pitch sweep!)
-                                  // humOscA: 55Hz, humOscB: 56.5Hz, humSubOsc: 27.5Hz - already set in init()
+                                        // OSCILLATORS NEVER CHANGE FREQUENCY (fixed 55Hz / 27.5Hz)
+                                        // Only FILTER moves: 120Hz -> max 370Hz (250Hz range, absolut dumpf)
+                                        this.humFilter.frequency.setTargetAtTime(120 + intensity * 250, now, 0.05);  // Max 370Hz
 
-                                  // 3. Filter opens quickly: 180Hz -> 480Hz (max 300Hz range, absolut dumpf & wuchtig)
-                                  this.humFilter.frequency.cancelScheduledValues(now);
-                                  this.humFilter.frequency.setValueAtTime(180, now);
-                                  this.humFilter.frequency.exponentialRampToValueAtTime(480, now + 0.15);
+                                        // Subtle idle pan
+                                        if (this.panner && this.panner.pan) {
+                                          this.panner.pan.setTargetAtTime(Math.sin(now * 0.15) * 0.1, now, 0.5);
+                                        }
 
-                                  // 4. Master volume ramp up (prevents clicking)
-                                  this.humGain.gain.cancelScheduledValues(now);
-                                  this.humGain.gain.setValueAtTime(0.0, now);
-                                  this.humGain.gain.linearRampToValueAtTime(0.35, now + 0.15);
+                                        // Swing detection
+                                        if (motion > 1.0 * sensitivity && now - this.lastSwingTime > 0.18) {
+                                          this.triggerSwing(intensity);
+                                          this.lastSwingTime = now;
+                                          this.swingCount++;
+                                        }
 
-                                  // 5. Noise layer slight boost
-                                  this.noiseGain.gain.cancelScheduledValues(now);
-                                  this.noiseGain.gain.setValueAtTime(0.02, now);
-                                  this.noiseGain.gain.linearRampToValueAtTime(0.04, now + 0.15);
-                                },
+                                        // Clash detection
+                                        if (motion > 2.2 * sensitivity && now - this.lastClashTime > 0.35) {
+                                          this.triggerClash(intensity);
+                                          this.lastClashTime = now;
+                                        }
+                                      },
 
-                                // Call when sound is deactivated (retraction) - filter close + volume down
-                                deactivate() {
-                                  if (!this.isActive || !audioCtx) return;
-                                  this.isActive = false;
-                                  const now = audioCtx.currentTime;
+                                      triggerSwing(intensity) {
+                                        // Simple swing: just a brief filter sweep + volume bump
+                                        if (!audioCtx) return;
+                                        const now = audioCtx.currentTime;
+                                        const dur = 0.3 + intensity * 0.2;
 
-                                  // OSCs stay FIXED at base frequencies (NO pitch sweep down!)
+                                        // Boost filter briefly (adds "whoosh" without new oscillators)
+                                        const currentFreq = this.humFilter.frequency.value;
+                                        const targetFreq = Math.min(currentFreq + 150 * intensity, 500);
+                                        this.humFilter.frequency.cancelScheduledValues(now);
+                                        this.humFilter.frequency.setValueAtTime(currentFreq, now);
+                                        this.humFilter.frequency.exponentialRampToValueAtTime(targetFreq, now + dur * 0.3);
+                                        this.humFilter.frequency.exponentialRampToValueAtTime(currentFreq, now + dur);
 
-                                  // Filter closes: to 180Hz (idle value)
-                                  this.humFilter.frequency.cancelScheduledValues(now);
-                                  this.humFilter.frequency.setValueAtTime(this.humFilter.frequency.value, now);
-                                  this.humFilter.frequency.exponentialRampToValueAtTime(180, now + 0.3);
+                                        // Volume bump
+                                        const currentVol = this.humGain.gain.value;
+                                        this.humGain.gain.cancelScheduledValues(now);
+                                        this.humGain.gain.setValueAtTime(currentVol, now);
+                                        this.humGain.gain.linearRampToValueAtTime(Math.min(currentVol + 0.2 * intensity, 0.7), now + 0.02);
+                                        this.humGain.gain.exponentialRampToValueAtTime(currentVol, now + dur);
+                                      },
 
-                                  // Master volume ramp down
-                                  this.humGain.gain.cancelScheduledValues(now);
-                                  this.humGain.gain.setValueAtTime(this.humGain.gain.value, now);
-                                  this.humGain.gain.linearRampToValueAtTime(0.0, now + 0.3);
+                                      triggerClash(intensity) {
+                                        // Simple clash: noise burst through main filter
+                                        if (!audioCtx) return;
+                                        const now = audioCtx.currentTime;
 
-                                  // Noise layer down
-                                  this.noiseGain.gain.cancelScheduledValues(now);
-                                  this.noiseGain.gain.setValueAtTime(this.noiseGain.gain.value, now);
-                                  this.noiseGain.gain.linearRampToValueAtTime(0.0, now + 0.3);
-                                },
+                                        const bufferSize = audioCtx.sampleRate * 0.08;
+                                        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                                        const data = buffer.getChannelData(0);
+                                        for (let i = 0; i < bufferSize; i++) {
+                                          const decay = Math.exp(-i / (bufferSize * 0.1));
+                                          data[i] = (Math.random() * 2 - 1) * decay * 0.5;
+                                        }
 
-                                update(motion, dt) {
-                                  if (!this.humGain) return;
+                                        const noise = audioCtx.createBufferSource();
+                                        noise.buffer = buffer;
+                                        const clashGain = audioCtx.createGain();
+                                        clashGain.gain.value = 0;
 
-                                  const intensity = Math.min(motion * sensitivity * 2, 1);
-                                  const now = audioCtx.currentTime;
+                                        noise.connect(this.humFilter);  // Through main filter (stays dark!)
+                                        if (this.panner) {
+                                          this.humFilter.disconnect();
+                                          this.humFilter.connect(this.panner);
+                                          this.panner.connect(audioCtx.destination);
+                                        }
+                                        clashGain.connect(this.humFilter); // Actually, let's just use humFilter path
 
-                                  // --- HUM LAYER ---
-                                  // Base volume + intensity boost
-                                  const baseHumVol = 0.05;
-                                  const intensityVol = intensity * 0.28;
-                                  const targetHumVol = baseHumVol + intensityVol;
-        
-                                  // Smooth volume using setTargetAtTime
-                                  this.humGain.gain.setTargetAtTime(targetHumVol, now, 0.05);
+                                        // Simpler: just inject through a temp gain to mainFilter
+                                        const tempGain = audioCtx.createGain();
+                                        tempGain.gain.setValueAtTime(0.3 * intensity, now);
+                                        tempGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+                                        noise.connect(tempGain);
+                                        tempGain.connect(this.humFilter);
 
-                                  // OSCILLATOR FREQUENCIES STAY FIXED (55Hz, 56.5Hz, 27.5Hz) - NO PITCH BENDING!
-                                  // Only the FILTER opens/closes with movement
+                                        noise.start(now);
+                                        setTimeout(() => { noise.stop(); noise.disconnect(); tempGain.disconnect(); }, 200);
+                                      },
 
-                                  // Filter opens with intensity: 180Hz -> max 480Hz (absolut dumpf & wuchtig, kein Pfeifen)
-                                  // Max range only 300Hz! Slower smoothing (0.05) prevents spikes
-                                  this.humFilter.frequency.setTargetAtTime(180 + intensity * 300, now, 0.05);  // Max 480Hz
-
-                                  // Noise layer: LOWPASS hard capped at 600Hz, very low gain
-                                  this.noiseFilter.frequency.setTargetAtTime(600, now, 0.05);  // Fixed 600Hz
-                                  this.noiseGain.gain.setTargetAtTime(0.02 + intensity * 0.02, now, 0.05);  // Max 0.04
-
-                                  // Stereo panning - subtle idle auto-pan for width
-                                  if (this.panner && this.panner.pan) {
-                                    this.panner.pan.setTargetAtTime(Math.sin(now * 0.15) * 0.15, now, 0.5);
-                                  }
-
-                                  // --- SWING DETECTION ---
-                                  if (motion > 1.0 * sensitivity && now - this.lastSwingTime > 0.18) {
-                                    this.triggerSwing(intensity);
-                                    this.lastSwingTime = now;
-                                    this.swingCount++;
-                                  }
-
-                                  // --- CLASH DETECTION ---
-                                  if (motion > 2.2 * sensitivity && now - this.lastClashTime > 0.35) {
-                                    this.triggerClash(intensity);
-                                    this.lastClashTime = now;
-                                  }
-                                },
-
-                                triggerSwing(intensity) {
-                                  if (!audioCtx) return;
-                                  const now = audioCtx.currentTime;
-                                  const dur = 0.45 + intensity * 0.25;  // 0.45-0.7s
-
-                                  // Create a rich swing sound with detuned pair
-                                  const swingOscA = audioCtx.createOscillator();
-                                  const swingOscB = audioCtx.createOscillator();
-                                  const swingGain = audioCtx.createGain();
-                                  const swingFilter = audioCtx.createBiquadFilter();
-                                  const swingFilter2 = audioCtx.createBiquadFilter();
-
-                                  // Main oscillator - starts high, sweeps down (Doppler)
-                                  swingOscA.type = 'sawtooth';
-                                  swingOscA.frequency.value = 280 + intensity * 350;
-         
-                                  // Detuned partner for chorus/beating
-                                  swingOscB.type = 'sawtooth';
-                                  swingOscB.frequency.value = (280 + intensity * 350) * 1.014;
-         
-                                  // Bandpass filter for that "whoosh" character
-                                  swingFilter.type = 'bandpass';
-                                  swingFilter.frequency.value = 400 + intensity * 500;  // Max 900Hz
-                                  swingFilter.Q.value = 4.5;
-
-                                  // Lowpass for body - keep it dark, no high piercing tones
-                                  swingFilter2.type = 'lowpass';
-                                  swingFilter2.frequency.value = 1200 + intensity * 600;  // Max 1800Hz
-                                  swingFilter2.Q.value = 2;
-
-                                  // Chain: oscillators -> bandpass -> lowpass -> gain -> destination
-                                  swingOscA.connect(swingFilter);
-                                  swingOscB.connect(swingFilter);
-                                  swingFilter.connect(swingFilter2);
-                                  swingFilter2.connect(swingGain);
-                                  if (this.panner) {
-                                    swingGain.connect(this.panner);
-                                  } else {
-                                    swingGain.connect(audioCtx.destination);
-                                  }
-
-                                  swingOscA.start(now);
-                                  swingOscB.start(now);
-
-                                  // Pitch sweep down (Doppler effect) - exponential for natural feel
-                                  const endFreq = 65 + intensity * 90;
-                                  swingOscA.frequency.exponentialRampToValueAtTime(endFreq, now + dur);
-                                  swingOscB.frequency.exponentialRampToValueAtTime(endFreq * 1.014, now + dur);
-
-                                  // Filter sweep - opens then closes (stay in vocal range)
-                                  swingFilter.frequency.exponentialRampToValueAtTime(800 + intensity * 400, now + dur * 0.3);  // Max 1200Hz
-                                  swingFilter.frequency.exponentialRampToValueAtTime(160, now + dur);
-                                  swingFilter.Q.linearRampToValueAtTime(6, now + dur * 0.2);
-                                  swingFilter.Q.linearRampToValueAtTime(3, now + dur);
-
-                                  // Volume envelope: fast attack, exponential decay with slight "tail"
-                                  const peakVol = 0.2 * intensity;
-                                  swingGain.gain.value = 0;
-                                  swingGain.gain.linearRampToValueAtTime(peakVol, now + 0.005);
-                                  swingGain.gain.exponentialRampToValueAtTime(peakVol * 0.35, now + dur * 0.4);
-                                  swingGain.gain.exponentialRampToValueAtTime(0.001, now + dur);
-
-                                  // Stereo pan during swing (Doppler spatial cue)
-                                  if (this.panner && this.panner.pan) {
-                                    // Random pan direction per swing
-                                    const panDir = Math.random() > 0.5 ? 1 : -1;
-                                    this.panner.pan.cancelScheduledValues(now);
-                                    this.panner.pan.setValueAtTime(this.panner.pan.value, now);
-                                    this.panner.pan.linearRampToValueAtTime(panDir * 0.7, now + dur * 0.15);
-                                    this.panner.pan.linearRampToValueAtTime(0, now + dur);
-                                  }
-
-                                  // Cleanup
-                                  setTimeout(() => {
-                                    swingOscA.stop();
-                                    swingOscB.stop();
-                                    swingOscA.disconnect();
-                                    swingOscB.disconnect();
-                                    swingFilter.disconnect();
-                                    swingFilter2.disconnect();
-                                    swingGain.disconnect();
-                                  }, (dur + 0.1) * 1000);
-                                },
-
-                                triggerClash(intensity) {
-                                  if (!audioCtx) return;
-                                  const now = audioCtx.currentTime;
-
-                                  // Clash = metallic impact: noise burst + resonant filter + harmonic ring
-                                  const bufferSize = audioCtx.sampleRate * 0.12;
-                                  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-                                  const data = buffer.getChannelData(0);
-                                  for (let i = 0; i < bufferSize; i++) {
-                                    // Shaped noise: sharp attack, exponential decay
-                                    const decay = Math.exp(-i / (bufferSize * 0.08));
-                                    data[i] = (Math.random() * 2 - 1) * decay * 0.8;
-                                  }
-
-                                  const noise = audioCtx.createBufferSource();
-                                  noise.buffer = buffer;
-
-                                  // Resonant bandpass for metallic "clang" (lower, throatier)
-                                  const clashFilter = audioCtx.createBiquadFilter();
-                                  clashFilter.type = 'bandpass';
-                                  clashFilter.frequency.value = 1000 + intensity * 600;  // Max 1600Hz
-                                  clashFilter.Q.value = 10;
-
-                                  // Second resonance for harmonic ring (vocal formant range)
-                                  const ringFilter = audioCtx.createBiquadFilter();
-                                  ringFilter.type = 'peak';
-                                  ringFilter.frequency.value = 1800;  // F2/F3 formant area
-                                  ringFilter.Q.value = 15;
-
-                                  const clashGain = audioCtx.createGain();
-                                  const ringGain = audioCtx.createGain();
-
-                                  noise.connect(clashFilter);
-                                  clashFilter.connect(ringFilter);
-                                  ringFilter.connect(clashGain);
-                                  if (this.panner) {
-                                    clashGain.connect(this.panner);
-                                  } else {
-                                    clashGain.connect(audioCtx.destination);
-                                  }
-
-                                  // Ring oscillator (pure sine that rings out) - lower pitch
-                                  const ringOsc = audioCtx.createOscillator();
-                                  ringOsc.type = 'sine';
-                                  ringOsc.frequency.value = 1200 + Math.random() * 400;  // 1200-1600Hz
-                                  if (this.panner) {
-                                    ringOsc.connect(this.panner);
-                                  } else {
-                                    ringOsc.connect(audioCtx.destination);
-                                  }
-
-                                  // Volume envelopes
-                                  const clashPeak = 0.35 * intensity;
-                                  clashGain.gain.value = 0;
-                                  clashGain.gain.linearRampToValueAtTime(clashPeak, now + 0.001);
-                                  clashGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-
-                                  ringGain.gain.value = 0;
-                                  ringGain.gain.linearRampToValueAtTime(0.15 * intensity, now + 0.005);
-                                  ringGain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);  // Long ring tail
-
-                                  noise.start(now);
-                                  ringOsc.start(now);
-
-                                  // Ring pitch drifts down slightly
-                                  ringOsc.frequency.exponentialRampToValueAtTime(ringOsc.frequency.value * 0.92, now + 0.8);
-
-                                  setTimeout(() => {
-                                    noise.stop();
-                                    ringOsc.stop();
-                                    noise.disconnect();
-                                    ringOsc.disconnect();
-                                    clashFilter.disconnect();
-                                    ringFilter.disconnect();
-                                    clashGain.disconnect();
-                                    ringGain.disconnect();
-                                  }, 1000);
-                                },
-
-                                stop() {
-                                  // Stop all oscillators
-                                  [this.humOscA, this.humOscB, this.humSubOsc].forEach(osc => {
-                                    if (osc) {
-                                      osc.stop();
-                                      osc.disconnect();
-                                    }
-                                  });
-        
-                                  // Stop noise
-                                  if (this.noiseNode) {
-                                    this.noiseNode.stop();
-                                    this.noiseNode.disconnect();
-                                  }
-        
-                                  // Disconnect gains/filters
-                                  [this.humGain, this.humFilter, this.distortion, this.noiseFilter, this.noiseGain, this.swingGain, this.panner].forEach(node => {
-                                    if (node) node.disconnect();
-                                  });
-        
-                                  this.humOscA = this.humOscB = this.humSubOsc = null;
-                                  this.noiseNode = this.noiseFilter = this.noiseGain = null;
-                                  this.humGain = this.humFilter = this.distortion = this.swingGain = this.panner = null;
-                                  this.isActive = false;
-                                }
-                              },
+                                      stop() {
+                                        [this.humOscA, this.humSubOsc].forEach(osc => {
+                                          if (osc) { osc.stop(); osc.disconnect(); }
+                                        });
+                                        [this.humGain, this.humFilter, this.panner].forEach(node => {
+                                          if (node) node.disconnect();
+                                        });
+                                        this.humOscA = this.humSubOsc = null;
+                                        this.humGain = this.humFilter = this.panner = null;
+                                        this.isActive = false;
+                                      }
+                                    },
       
       drill: {
         // Drill motor sound
