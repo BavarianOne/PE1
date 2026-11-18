@@ -299,319 +299,304 @@
     // Sound engines
     const soundEngines = {
       lightsaber: {
-              // Lightsaber hum + swing + clash sounds (multi-layer synthesis)
-              // Hum layer: fundamental + harmonics with subtle FM/AM modulation
-              humOsc: null,           // Fundamental (~120Hz)
-              humOsc2: null,          // 2nd harmonic (~240Hz)
-              humOsc3: null,          // 3rd harmonic (~360Hz)
-              humOsc4: null,          // 4th harmonic (~480Hz)
-              humGain: null,          // Master hum gain
-              humFilter: null,        // Lowpass for body
-              humModOsc: null,        // LFO for subtle FM modulation
-              humModGain: null,       // LFO depth
-        
-              // Swing layer
-              swingGain: null,
-              lastSwingTime: 0,
-              swingCount: 0,
-        
-              // Clash/impact layer
-              lastClashTime: 0,
-        
-              // Idle variation
-              idlePhase: 0,
-              idleModOsc: null,
-              idleModGain: null,
-        
-              baseFreq: 120,          // Fundamental frequency (A2-ish)
-              humHarmonics: [1, 2, 3, 4, 5, 6],  // Harmonic series
-              humHarmonicGains: [1.0, 0.5, 0.3, 0.2, 0.15, 0.1],  // Relative levels
+                    // Lightsaber hum + swing + clash sounds (multi-layer synthesis)
+                    // Hum layer: fundamental + soft harmonics with subtle FM/AM modulation
+                    humOsc: null,           // Fundamental (~110Hz)
+                    humOsc2: null,          // 2nd harmonic (~220Hz) - triangle (softer)
+                    humOsc3: null,          // 3rd harmonic (~330Hz) - sine
+                    humGain: null,          // Master hum gain
+                    humFilter: null,        // Lowpass for body (aggressive)
+                    humModOsc: null,        // LFO for subtle FM modulation
+                    humModGain: null,       // LFO depth
+      
+                    // Swing layer
+                    swingGain: null,
+                    lastSwingTime: 0,
+                    swingCount: 0,
+      
+                    // Clash/impact layer
+                    lastClashTime: 0,
+      
+                    // Idle variation
+                    idlePhase: 0,
+                    idleModOsc: null,
+                    idleModGain: null,
+      
+                    baseFreq: 110,          // Fundamental frequency (A2 - deeper, less buzzy)
+                    // Only 3 harmonics, much softer levels, mixed waveforms
 
-              init(ctx) {
-                // Master gain for hum
-                this.humGain = ctx.createGain();
-                this.humGain.gain.value = 0;
-                this.humGain.connect(ctx.destination);
+                    init(ctx) {
+                      // Master gain for hum
+                      this.humGain = ctx.createGain();
+                      this.humGain.gain.value = 0;
+                      this.humGain.connect(ctx.destination);
 
-                // Main filter for body character
-                this.humFilter = ctx.createBiquadFilter();
-                this.humFilter.type = 'lowpass';
-                this.humFilter.frequency.value = 1200;
-                this.humFilter.Q.value = 3;
-                this.humFilter.connect(this.humGain);
+                      // Main filter for body character - aggressive lowpass to remove buzz
+                      this.humFilter = ctx.createBiquadFilter();
+                      this.humFilter.type = 'lowpass';
+                      this.humFilter.frequency.value = 800;  // Lower cutoff = less buzz
+                      this.humFilter.Q.value = 4;            // Higher Q = more resonant character
+                      this.humFilter.connect(this.humGain);
 
-                // Fundamental oscillator
-                this.humOsc = ctx.createOscillator();
-                this.humOsc.type = 'sawtooth';
-                this.humOsc.frequency.value = this.baseFreq;
-                this.humOsc.connect(this.humFilter);
-                this.humOsc.start();
+                      // Fundamental oscillator - SAWTOOTH for rich base
+                      this.humOsc = ctx.createOscillator();
+                      this.humOsc.type = 'sawtooth';
+                      this.humOsc.frequency.value = this.baseFreq;
+                      this.humOsc.connect(this.humFilter);
+                      this.humOsc.start();
 
-                // Harmonic oscillators (2nd-6th harmonics)
-                this.humOsc2 = ctx.createOscillator();
-                this.humOsc2.type = 'sawtooth';
-                this.humOsc2.frequency.value = this.baseFreq * 2;
-                this.humOsc2.connect(this.humFilter);
-                this.humOsc2.start();
+                      // 2nd harmonic - TRIANGLE (softer than sawtooth, less buzzy)
+                      this.humOsc2 = ctx.createOscillator();
+                      this.humOsc2.type = 'triangle';
+                      this.humOsc2.frequency.value = this.baseFreq * 2;
+                      this.humOsc2.connect(this.humFilter);
+                      this.humOsc2.start();
 
-                this.humOsc3 = ctx.createOscillator();
-                this.humOsc3.type = 'sawtooth';
-                this.humOsc3.frequency.value = this.baseFreq * 3;
-                this.humOsc3.connect(this.humFilter);
-                this.humOsc3.start();
+                      // 3rd harmonic - SINE (pure, no buzz at all)
+                      this.humOsc3 = ctx.createOscillator();
+                      this.humOsc3.type = 'sine';
+                      this.humOsc3.frequency.value = this.baseFreq * 3;
+                      this.humOsc3.connect(this.humFilter);
+                      this.humOsc3.start();
 
-                this.humOsc4 = ctx.createOscillator();
-                this.humOsc4.type = 'sawtooth';
-                this.humOsc4.frequency.value = this.baseFreq * 4;
-                this.humOsc4.connect(this.humFilter);
-                this.humOsc4.start();
+                      // NO 4th+ harmonics - that's what makes it sound like a motor
 
-                // FM Modulation LFO (subtle pitch wobble - key for realistic saber hum)
-                this.humModOsc = ctx.createOscillator();
-                this.humModOsc.type = 'sine';
-                this.humModOsc.frequency.value = 4.5;  // Slow modulation ~4.5Hz
-                this.humModGain = ctx.createGain();
-                this.humModGain.gain.value = 8;  // Modulation depth in Hz
-                this.humModOsc.connect(this.humModGain);
-                this.humModGain.connect(this.humOsc.frequency);
-                this.humModGain.connect(this.humOsc2.frequency);
-                this.humModGain.connect(this.humOsc3.frequency);
-                this.humModGain.connect(this.humOsc4.frequency);
-                this.humModOsc.start();
+                      // FM Modulation LFO - MUCH more subtle
+                      this.humModOsc = ctx.createOscillator();
+                      this.humModOsc.type = 'sine';
+                      this.humModOsc.frequency.value = 5.2;  // Slightly faster, more organic
+                      this.humModGain = ctx.createGain();
+                      this.humModGain.gain.value = 3;  // Was 8 - much less wobble = less motor
+                      this.humModOsc.connect(this.humModGain);
+                      this.humModGain.connect(this.humOsc.frequency);
+                      this.humModGain.connect(this.humOsc2.frequency);
+                      this.humModGain.connect(this.humOsc3.frequency);
+                      this.humModOsc.start();
 
-                // Secondary slower LFO for amplitude variation (breathing)
-                this.idleModOsc = ctx.createOscillator();
-                this.idleModOsc.type = 'sine';
-                this.idleModOsc.frequency.value = 0.3;  // Very slow ~0.3Hz
-                this.idleModGain = ctx.createGain();
-                this.idleModGain.gain.value = 0.02;  // Subtle amplitude modulation
-                this.idleModOsc.connect(this.idleModGain);
-                this.idleModGain.connect(this.humGain.gain);
-                this.idleModOsc.start();
+                      // Secondary slower LFO for amplitude variation (breathing)
+                      this.idleModOsc = ctx.createOscillator();
+                      this.idleModOsc.type = 'sine';
+                      this.idleModOsc.frequency.value = 0.25;  // Very slow ~0.25Hz
+                      this.idleModGain = ctx.createGain();
+                      this.idleModGain.gain.value = 0.015;  // Subtle amplitude modulation
+                      this.idleModOsc.connect(this.idleModGain);
+                      this.idleModGain.connect(this.humGain.gain);
+                      this.idleModOsc.start();
 
-                // Swing master gain
-                this.swingGain = ctx.createGain();
-                this.swingGain.gain.value = 0;
-                this.swingGain.connect(ctx.destination);
-              },
+                      // Swing master gain
+                      this.swingGain = ctx.createGain();
+                      this.swingGain.gain.value = 0;
+                      this.swingGain.connect(ctx.destination);
+                    },
 
-              update(motion, dt) {
-                if (!this.humGain) return;
+                    update(motion, dt) {
+                      if (!this.humGain) return;
 
-                const intensity = Math.min(motion * sensitivity * 2, 1);
-                const now = audioCtx.currentTime;
+                      const intensity = Math.min(motion * sensitivity * 2, 1);
+                      const now = audioCtx.currentTime;
 
-                // --- HUM LAYER ---
-                // Base volume + intensity boost
-                const baseHumVol = 0.08;
-                const intensityVol = intensity * 0.35;
-                const targetHumVol = baseHumVol + intensityVol;
-          
-                // Apply idle amplitude modulation (already connected via LFO)
-                this.humGain.gain.linearRampToValueAtTime(targetHumVol, now + 0.05);
+                      // --- HUM LAYER ---
+                      // Base volume + intensity boost - slightly lower base
+                      const baseHumVol = 0.06;
+                      const intensityVol = intensity * 0.3;
+                      const targetHumVol = baseHumVol + intensityVol;
+         
+                      // Apply idle amplitude modulation (already connected via LFO)
+                      this.humGain.gain.linearRampToValueAtTime(targetHumVol, now + 0.05);
 
-                // Pitch modulation with intensity (all harmonics track together)
-                const pitchShift = intensity * 60;
-                this.humOsc.frequency.linearRampToValueAtTime(this.baseFreq + pitchShift, now + 0.05);
-                this.humOsc2.frequency.linearRampToValueAtTime(this.baseFreq * 2 + pitchShift * 2, now + 0.05);
-                this.humOsc3.frequency.linearRampToValueAtTime(this.baseFreq * 3 + pitchShift * 3, now + 0.05);
-                this.humOsc4.frequency.linearRampToValueAtTime(this.baseFreq * 4 + pitchShift * 4, now + 0.05);
+                      // Pitch modulation with intensity (all harmonics track together)
+                      const pitchShift = intensity * 40;  // Was 60 - less pitch shift = more stable
+                      this.humOsc.frequency.linearRampToValueAtTime(this.baseFreq + pitchShift, now + 0.05);
+                      this.humOsc2.frequency.linearRampToValueAtTime(this.baseFreq * 2 + pitchShift * 2, now + 0.05);
+                      this.humOsc3.frequency.linearRampToValueAtTime(this.baseFreq * 3 + pitchShift * 3, now + 0.05);
 
-                // Filter opens up with intensity (brighter when moving)
-                this.humFilter.frequency.linearRampToValueAtTime(1000 + intensity * 1500, now + 0.05);
-                this.humFilter.Q.linearRampToValueAtTime(2 + intensity * 4, now + 0.05);
+                      // Filter opens up with intensity (brighter when moving) - but stays controlled
+                      this.humFilter.frequency.linearRampToValueAtTime(700 + intensity * 1000, now + 0.05);  // Max 1700Hz
+                      this.humFilter.Q.linearRampToValueAtTime(3 + intensity * 3, now + 0.05);  // Max Q=6
 
-                // FM modulation depth increases slightly with motion
-                this.humModGain.gain.linearRampToValueAtTime(6 + intensity * 6, now + 0.05);
-                this.humModOsc.frequency.linearRampToValueAtTime(4.5 + intensity * 2, now + 0.05);
+                      // FM modulation depth increases slightly with motion - but stays subtle
+                      this.humModGain.gain.linearRampToValueAtTime(2 + intensity * 4, now + 0.05);  // Max 6Hz
+                      this.humModOsc.frequency.linearRampToValueAtTime(5.2 + intensity * 1.5, now + 0.05);
 
-                // --- SWING DETECTION ---
-                // Swing: rapid acceleration (high motion) with cooldown
-                if (motion > 1.0 * sensitivity && now - this.lastSwingTime > 0.18) {
-                  this.triggerSwing(intensity);
-                  this.lastSwingTime = now;
-                  this.swingCount++;
-                }
+                      // --- SWING DETECTION ---
+                      // Swing: rapid acceleration (high motion) with cooldown
+                      if (motion > 1.0 * sensitivity && now - this.lastSwingTime > 0.18) {
+                        this.triggerSwing(intensity);
+                        this.lastSwingTime = now;
+                        this.swingCount++;
+                      }
 
-                // --- CLASH DETECTION ---
-                // Clash: very sharp, high-magnitude impact (higher threshold, shorter cooldown)
-                if (motion > 2.2 * sensitivity && now - this.lastClashTime > 0.35) {
-                  this.triggerClash(intensity);
-                  this.lastClashTime = now;
-                }
-              },
+                      // --- CLASH DETECTION ---
+                      // Clash: very sharp, high-magnitude impact (higher threshold, shorter cooldown)
+                      if (motion > 2.2 * sensitivity && now - this.lastClashTime > 0.35) {
+                        this.triggerClash(intensity);
+                        this.lastClashTime = now;
+                      }
+                    },
 
-              triggerSwing(intensity) {
-                if (!audioCtx) return;
-                const now = audioCtx.currentTime;
-                const dur = 0.35 + intensity * 0.15;  // 0.35-0.5s
+                    triggerSwing(intensity) {
+                      if (!audioCtx) return;
+                      const now = audioCtx.currentTime;
+                      const dur = 0.4 + intensity * 0.2;  // 0.4-0.6s - slightly longer
 
-                // Create a rich swing sound with multiple harmonics
-                const swingOsc = audioCtx.createOscillator();
-                const swingOsc2 = audioCtx.createOscillator();
-                const swingOsc3 = audioCtx.createOscillator();
-                const swingGain = audioCtx.createGain();
-                const swingFilter = audioCtx.createBiquadFilter();
-                const swingFilter2 = audioCtx.createBiquadFilter();
+                      // Create a rich swing sound with multiple harmonics
+                      const swingOsc = audioCtx.createOscillator();
+                      const swingOsc2 = audioCtx.createOscillator();
+                      const swingGain = audioCtx.createGain();
+                      const swingFilter = audioCtx.createBiquadFilter();
+                      const swingFilter2 = audioCtx.createBiquadFilter();
 
-                // Main oscillator - starts high, sweeps down (Doppler)
-                swingOsc.type = 'sawtooth';
-                swingOsc.frequency.value = 350 + intensity * 500;
-          
-                // 2nd harmonic
-                swingOsc2.type = 'sawtooth';
-                swingOsc2.frequency.value = 700 + intensity * 1000;
-          
-                // 3rd harmonic (quieter)
-                swingOsc3.type = 'square';
-                swingOsc3.frequency.value = 1050 + intensity * 1500;
+                      // Main oscillator - starts high, sweeps down (Doppler)
+                      swingOsc.type = 'sawtooth';
+                      swingOsc.frequency.value = 300 + intensity * 400;
+         
+                      // 2nd harmonic - triangle for less buzz
+                      swingOsc2.type = 'triangle';
+                      swingOsc2.frequency.value = 600 + intensity * 800;
+         
+                      // NO 3rd harmonic square - that was too buzzy
 
-                // Bandpass filter for that "whoosh" character
-                swingFilter.type = 'bandpass';
-                swingFilter.frequency.value = 600 + intensity * 1000;
-                swingFilter.Q.value = 6;
+                      // Bandpass filter for that "whoosh" character
+                      swingFilter.type = 'bandpass';
+                      swingFilter.frequency.value = 500 + intensity * 800;
+                      swingFilter.Q.value = 5;
 
-                // Lowpass for body
-                swingFilter2.type = 'lowpass';
-                swingFilter2.frequency.value = 2000 + intensity * 2000;
-                swingFilter2.Q.value = 2;
+                      // Lowpass for body
+                      swingFilter2.type = 'lowpass';
+                      swingFilter2.frequency.value = 1800 + intensity * 1500;
+                      swingFilter2.Q.value = 2;
 
-                // Chain: oscillators -> bandpass -> lowpass -> gain -> destination
-                swingOsc.connect(swingFilter);
-                swingOsc2.connect(swingFilter);
-                swingOsc3.connect(swingFilter);
-                swingFilter.connect(swingFilter2);
-                swingFilter2.connect(swingGain);
-                swingGain.connect(this.swingGain);  // Route through swing master gain
+                      // Chain: oscillators -> bandpass -> lowpass -> gain -> destination
+                      swingOsc.connect(swingFilter);
+                      swingOsc2.connect(swingFilter);
+                      swingFilter.connect(swingFilter2);
+                      swingFilter2.connect(swingGain);
+                      swingGain.connect(this.swingGain);  // Route through swing master gain
 
-                swingOsc.start(now);
-                swingOsc2.start(now);
-                swingOsc3.start(now);
+                      swingOsc.start(now);
+                      swingOsc2.start(now);
 
-                // Pitch sweep down (Doppler effect) - exponential for natural feel
-                const endFreq = 80 + intensity * 120;
-                swingOsc.frequency.exponentialRampToValueAtTime(endFreq, now + dur);
-                swingOsc2.frequency.exponentialRampToValueAtTime(endFreq * 2, now + dur);
-                swingOsc3.frequency.exponentialRampToValueAtTime(endFreq * 3, now + dur);
+                      // Pitch sweep down (Doppler effect) - exponential for natural feel
+                      const endFreq = 70 + intensity * 100;
+                      swingOsc.frequency.exponentialRampToValueAtTime(endFreq, now + dur);
+                      swingOsc2.frequency.exponentialRampToValueAtTime(endFreq * 2, now + dur);
 
-                // Filter sweep - opens then closes
-                swingFilter.frequency.exponentialRampToValueAtTime(1200 + intensity * 800, now + dur * 0.3);
-                swingFilter.frequency.exponentialRampToValueAtTime(200, now + dur);
-                swingFilter.Q.linearRampToValueAtTime(8, now + dur * 0.2);
-                swingFilter.Q.linearRampToValueAtTime(3, now + dur);
+                      // Filter sweep - opens then closes
+                      swingFilter.frequency.exponentialRampToValueAtTime(1000 + intensity * 600, now + dur * 0.3);
+                      swingFilter.frequency.exponentialRampToValueAtTime(180, now + dur);
+                      swingFilter.Q.linearRampToValueAtTime(7, now + dur * 0.2);
+                      swingFilter.Q.linearRampToValueAtTime(3, now + dur);
 
-                // Volume envelope: fast attack, exponential decay with slight "tail"
-                const peakVol = 0.25 * intensity;
-                swingGain.gain.value = 0;
-                swingGain.gain.linearRampToValueAtTime(peakVol, now + 0.005);
-                swingGain.gain.exponentialRampToValueAtTime(peakVol * 0.3, now + dur * 0.4);
-                swingGain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+                      // Volume envelope: fast attack, exponential decay with slight "tail"
+                      const peakVol = 0.22 * intensity;
+                      swingGain.gain.value = 0;
+                      swingGain.gain.linearRampToValueAtTime(peakVol, now + 0.005);
+                      swingGain.gain.exponentialRampToValueAtTime(peakVol * 0.3, now + dur * 0.4);
+                      swingGain.gain.exponentialRampToValueAtTime(0.001, now + dur);
 
-                // Cleanup
-                setTimeout(() => {
-                  swingOsc.stop();
-                  swingOsc2.stop();
-                  swingOsc3.stop();
-                  swingOsc.disconnect();
-                  swingOsc2.disconnect();
-                  swingOsc3.disconnect();
-                  swingFilter.disconnect();
-                  swingFilter2.disconnect();
-                  swingGain.disconnect();
-                }, (dur + 0.1) * 1000);
-              },
+                      // Cleanup
+                      setTimeout(() => {
+                        swingOsc.stop();
+                        swingOsc2.stop();
+                        swingOsc.disconnect();
+                        swingOsc2.disconnect();
+                        swingFilter.disconnect();
+                        swingFilter2.disconnect();
+                        swingGain.disconnect();
+                      }, (dur + 0.1) * 1000);
+                    },
 
-              triggerClash(intensity) {
-                if (!audioCtx) return;
-                const now = audioCtx.currentTime;
+                    triggerClash(intensity) {
+                      if (!audioCtx) return;
+                      const now = audioCtx.currentTime;
 
-                // Clash = metallic impact: noise burst + resonant filter + harmonic ring
-                const bufferSize = audioCtx.sampleRate * 0.12;
-                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-                const data = buffer.getChannelData(0);
-                for (let i = 0; i < bufferSize; i++) {
-                  // Shaped noise: sharp attack, exponential decay
-                  const decay = Math.exp(-i / (bufferSize * 0.08));
-                  data[i] = (Math.random() * 2 - 1) * decay * 0.8;
-                }
+                      // Clash = metallic impact: noise burst + resonant filter + harmonic ring
+                      const bufferSize = audioCtx.sampleRate * 0.12;
+                      const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                      const data = buffer.getChannelData(0);
+                      for (let i = 0; i < bufferSize; i++) {
+                        // Shaped noise: sharp attack, exponential decay
+                        const decay = Math.exp(-i / (bufferSize * 0.08));
+                        data[i] = (Math.random() * 2 - 1) * decay * 0.8;
+                      }
 
-                const noise = audioCtx.createBufferSource();
-                noise.buffer = buffer;
+                      const noise = audioCtx.createBufferSource();
+                      noise.buffer = buffer;
 
-                // Resonant bandpass for metallic "clang"
-                const clashFilter = audioCtx.createBiquadFilter();
-                clashFilter.type = 'bandpass';
-                clashFilter.frequency.value = 1800 + intensity * 1200;
-                clashFilter.Q.value = 12;
+                      // Resonant bandpass for metallic "clang"
+                      const clashFilter = audioCtx.createBiquadFilter();
+                      clashFilter.type = 'bandpass';
+                      clashFilter.frequency.value = 1800 + intensity * 1200;
+                      clashFilter.Q.value = 12;
 
-                // Second resonance for harmonic ring
-                const ringFilter = audioCtx.createBiquadFilter();
-                ringFilter.type = 'peak';
-                ringFilter.frequency.value = 3200;
-                ringFilter.Q.value = 20;
+                      // Second resonance for harmonic ring
+                      const ringFilter = audioCtx.createBiquadFilter();
+                      ringFilter.type = 'peak';
+                      ringFilter.frequency.value = 3200;
+                      ringFilter.Q.value = 20;
 
-                const clashGain = audioCtx.createGain();
-                const ringGain = audioCtx.createGain();
+                      const clashGain = audioCtx.createGain();
+                      const ringGain = audioCtx.createGain();
 
-                noise.connect(clashFilter);
-                clashFilter.connect(ringFilter);
-                ringFilter.connect(clashGain);
-                clashGain.connect(audioCtx.destination);
+                      noise.connect(clashFilter);
+                      clashFilter.connect(ringFilter);
+                      ringFilter.connect(clashGain);
+                      clashGain.connect(audioCtx.destination);
 
-                // Ring oscillator (pure sine that rings out)
-                const ringOsc = audioCtx.createOscillator();
-                ringOsc.type = 'sine';
-                ringOsc.frequency.value = 2400 + Math.random() * 800;  // Random clash pitch
-                ringOsc.connect(ringGain);
-                ringGain.connect(audioCtx.destination);
+                      // Ring oscillator (pure sine that rings out)
+                      const ringOsc = audioCtx.createOscillator();
+                      ringOsc.type = 'sine';
+                      ringOsc.frequency.value = 2400 + Math.random() * 800;  // Random clash pitch
+                      ringOsc.connect(ringGain);
+                      ringGain.connect(audioCtx.destination);
 
-                // Volume envelopes
-                const clashPeak = 0.35 * intensity;
-                clashGain.gain.value = 0;
-                clashGain.gain.linearRampToValueAtTime(clashPeak, now + 0.001);
-                clashGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+                      // Volume envelopes
+                      const clashPeak = 0.35 * intensity;
+                      clashGain.gain.value = 0;
+                      clashGain.gain.linearRampToValueAtTime(clashPeak, now + 0.001);
+                      clashGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
 
-                ringGain.gain.value = 0;
-                ringGain.gain.linearRampToValueAtTime(0.15 * intensity, now + 0.005);
-                ringGain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);  // Long ring tail
+                      ringGain.gain.value = 0;
+                      ringGain.gain.linearRampToValueAtTime(0.15 * intensity, now + 0.005);
+                      ringGain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);  // Long ring tail
 
-                noise.start(now);
-                ringOsc.start(now);
+                      noise.start(now);
+                      ringOsc.start(now);
 
-                // Ring pitch drifts down slightly
-                ringOsc.frequency.exponentialRampToValueAtTime(ringOsc.frequency.value * 0.92, now + 0.8);
+                      // Ring pitch drifts down slightly
+                      ringOsc.frequency.exponentialRampToValueAtTime(ringOsc.frequency.value * 0.92, now + 0.8);
 
-                setTimeout(() => {
-                  noise.stop();
-                  ringOsc.stop();
-                  noise.disconnect();
-                  ringOsc.disconnect();
-                  clashFilter.disconnect();
-                  ringFilter.disconnect();
-                  clashGain.disconnect();
-                  ringGain.disconnect();
-                }, 1000);
-              },
+                      setTimeout(() => {
+                        noise.stop();
+                        ringOsc.stop();
+                        noise.disconnect();
+                        ringOsc.disconnect();
+                        clashFilter.disconnect();
+                        ringFilter.disconnect();
+                        clashGain.disconnect();
+                        ringGain.disconnect();
+                      }, 1000);
+                    },
 
-              stop() {
-                // Stop all oscillators
-                [this.humOsc, this.humOsc2, this.humOsc3, this.humOsc4, this.humModOsc, this.idleModOsc].forEach(osc => {
-                  if (osc) {
-                    osc.stop();
-                    osc.disconnect();
-                  }
-                });
-          
-                // Disconnect gains/filters
-                [this.humGain, this.humFilter, this.humModGain, this.idleModGain, this.swingGain].forEach(node => {
-                  if (node) node.disconnect();
-                });
-          
-                this.humOsc = this.humOsc2 = this.humOsc3 = this.humOsc4 = null;
-                this.humModOsc = this.idleModOsc = null;
-                this.humGain = this.humFilter = this.humModGain = this.idleModGain = this.swingGain = null;
-              }
-            },
+                    stop() {
+                      // Stop all oscillators
+                      [this.humOsc, this.humOsc2, this.humOsc3, this.humModOsc, this.idleModOsc].forEach(osc => {
+                        if (osc) {
+                          osc.stop();
+                          osc.disconnect();
+                        }
+                      });
+         
+                      // Disconnect gains/filters
+                      [this.humGain, this.humFilter, this.humModGain, this.idleModGain, this.swingGain].forEach(node => {
+                        if (node) node.disconnect();
+                      });
+         
+                      this.humOsc = this.humOsc2 = this.humOsc3 = null;
+                      this.humModOsc = this.idleModOsc = null;
+                      this.humGain = this.humFilter = this.humModGain = this.idleModGain = this.swingGain = null;
+                    }
+                  },
       
       drill: {
         // Drill motor sound
