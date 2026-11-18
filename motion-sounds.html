@@ -345,11 +345,11 @@
                                   this.humGain.gain.value = 0;
                                   this.humGain.connect(ctx.destination);
 
-                                  // Main filter: high-Q lowpass for vocal/tube character (PRE-distortion)
+                                  // Main filter: lowpass for deep, heavy character (PRE-distortion)
                                   this.humFilter = ctx.createBiquadFilter();
                                   this.humFilter.type = 'lowpass';
-                                  this.humFilter.frequency.value = 250;  // Idle hum (lower = darker)
-                                  this.humFilter.Q.value = 6.0;          // Q=6 moderate resonance (no screeching)
+                                  this.humFilter.frequency.value = 180;  // Idle: very dark, heavy
+                                  this.humFilter.Q.value = 6.0;          // Q=6 moderate resonance
                                   this.humFilter.connect(this.humGain);
 
                                   // Distortion (WaveShaper) for dirty plasma growl (POST-filter)
@@ -471,10 +471,10 @@
                                   // 2. OSCs stay FIXED at base frequencies (NO pitch sweep!)
                                   // humOscA: 55Hz, humOscB: 56.5Hz, humSubOsc: 27.5Hz - already set in init()
 
-                                  // 3. Filter opens quickly: 250Hz -> 600Hz (matches idle/max range)
+                                  // 3. Filter opens quickly: 180Hz -> 480Hz (max 300Hz range, absolut dumpf & wuchtig)
                                   this.humFilter.frequency.cancelScheduledValues(now);
-                                  this.humFilter.frequency.setValueAtTime(250, now);
-                                  this.humFilter.frequency.exponentialRampToValueAtTime(600, now + 0.15);
+                                  this.humFilter.frequency.setValueAtTime(180, now);
+                                  this.humFilter.frequency.exponentialRampToValueAtTime(480, now + 0.15);
 
                                   // 4. Master volume ramp up (prevents clicking)
                                   this.humGain.gain.cancelScheduledValues(now);
@@ -495,10 +495,10 @@
 
                                   // OSCs stay FIXED at base frequencies (NO pitch sweep down!)
 
-                                  // Filter closes: to 250Hz (idle value)
+                                  // Filter closes: to 180Hz (idle value)
                                   this.humFilter.frequency.cancelScheduledValues(now);
                                   this.humFilter.frequency.setValueAtTime(this.humFilter.frequency.value, now);
-                                  this.humFilter.frequency.exponentialRampToValueAtTime(250, now + 0.3);
+                                  this.humFilter.frequency.exponentialRampToValueAtTime(180, now + 0.3);
 
                                   // Master volume ramp down
                                   this.humGain.gain.cancelScheduledValues(now);
@@ -529,9 +529,9 @@
                                   // OSCILLATOR FREQUENCIES STAY FIXED (55Hz, 56.5Hz, 27.5Hz) - NO PITCH BENDING!
                                   // Only the FILTER opens/closes with movement
 
-                                  // Filter opens with intensity: 250Hz -> max 1500Hz (Q=6 moderate, no screech)
-                                  // Slower smoothing (0.05) prevents abrupt spikes from sensor jitter
-                                  this.humFilter.frequency.setTargetAtTime(250 + intensity * 1250, now, 0.05);  // Max 1500Hz
+                                  // Filter opens with intensity: 180Hz -> max 480Hz (absolut dumpf & wuchtig, kein Pfeifen)
+                                  // Max range only 300Hz! Slower smoothing (0.05) prevents spikes
+                                  this.humFilter.frequency.setTargetAtTime(180 + intensity * 300, now, 0.05);  // Max 480Hz
 
                                   // Noise layer: LOWPASS hard capped at 600Hz, very low gain
                                   this.noiseFilter.frequency.setTargetAtTime(600, now, 0.05);  // Fixed 600Hz
