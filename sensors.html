@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0099ff">
+  <meta name="description" content="PE1 - Sensor HUD Pro: Alle Hardware-Sensoren in Echtzeit">
+  <title>Sensor HUD Pro — PE1</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="PE1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Azeret+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    :root {
+      --hud-bg: #030712;
+      --hud-panel: rgba(17, 24, 39, 0.7);
+      --hud-border: #1f2937;
+      --hud-green: #10b981;
+      --hud-cyan: #06b6d4;
+      --hud-amber: #f59e0b;
+      --hud-red: #ef4444;
+      --hud-glow: rgba(6, 182, 212, 0.3);
+      --hud-glow-green: rgba(16, 185, 129, 0.3);
+      --hud-glow-amber: rgba(245, 158, 11, 0.3);
+      --hud-text: #f3f4f6;
+      --hud-muted: #9ca3af;
+      --hud-dim: #6b7280;
+    }
+
+    [data-theme="light"] {
+      --hud-bg: #f8fafc;
+      --hud-panel: rgba(255, 255, 255, 0.9);
+      --hud-border: #e2e8f0;
+      --hud-green: #059669;
+      --hud-cyan: #0891b2;
+      --hud-amber: #d97706;
+      --hud-red: #dc2626;
+      --hud-glow: rgba(6, 182, 212, 0.2);
+      --hud-glow-green: rgba(16, 185, 129, 0.2);
+      --hud-glow-amber: rgba(245, 158, 11, 0.2);
+      --hud-text: #0f172a;
+      --hud-muted: #64748b;
+      --hud-dim: #94a3b8;
+    }
+
+    body.hud-page {
+      background: var(--hud-bg);
+      color: var(--hud-text);
+      font-family: var(--font-mono);
+    }
+
+    .hud-container {
+      max-width: 960px;
+      width: 100%;
+      padding: var(--space-4);
+    }
+
+    .hud-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid var(--hud-cyan);
+      padding-bottom: var(--space-3);
+      margin-bottom: var(--space-5);
+      box-shadow: 0 4px 12px var(--hud-glow);
+      flex-wrap: wrap;
+      gap: var(--space-3);
+    }
+
+    .hud-header h1 {
+      font-size: var(--text-h3);
+      margin: 0;
+      letter-spacing: 0.1em;
+      color: var(--hud-cyan);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .status-badge {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid var(--hud-green);
+      color: var(--hud-green);
+      padding: var(--space-1) var(--space-3);
+      font-size: var(--text-caption);
+      border-radius: var(--radius-pill-sm);
+      letter-spacing: 0.05em;
+      animation: pulse 2s infinite;
+      font-weight: 500;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.6; }
+      50% { opacity: 1; }
+      100% { opacity: 0.6; }
+    }
+
+    .hud-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: var(--space-4);
+      margin-bottom: var(--space-5);
+    }
+
+    .hud-panel {
+      background: var(--hud-panel);
+      border: 1px solid var(--hud-border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4);
+      position: relative;
+      backdrop-filter: blur(8px);
+      transition: border-color var(--duration-normal), box-shadow var(--duration-normal);
+    }
+
+    .hud-panel:hover {
+      border-color: var(--hud-cyan);
+      box-shadow: 0 0 20px var(--hud-glow);
+    }
+
+    .hud-panel.warning {
+      border-color: var(--hud-amber);
+    }
+    .hud-panel.warning:hover {
+      box-shadow: 0 0 20px var(--hud-glow-amber);
+    }
+
+    .hud-panel.error {
+      border-color: var(--hud-red);
+    }
+
+    .hud-panel::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; width: 4px; height: 100%;
+      background: var(--hud-cyan);
+      border-top-left-radius: var(--radius-lg);
+      border-bottom-left-radius: var(--radius-lg);
+    }
+
+    .hud-panel.warning::before { background: var(--hud-amber); }
+    .hud-panel.error::before { background: var(--hud-red); }
+
+    .hud-panel-title {
+      font-size: var(--text-caption);
+      color: var(--hud-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: var(--space-2);
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .sensor-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--hud-dim);
+      transition: background var(--duration-normal);
+    }
+    .sensor-indicator.active { background: var(--hud-green); box-shadow: 0 0 8px var(--hud-green); }
+    .sensor-indicator.warning { background: var(--hud-amber); box-shadow: 0 0 8px var(--hud-amber); }
+    .sensor-indicator.error { background: var(--hud-red); }
+
+    .hud-panel-value {
+      font-size: var(--text-h3);
+      font-weight: 600;
+      color: var(--hud-text);
+      font-family: var(--font-mono);
+      word-break: break-word;
+    }
+
+    .hud-panel-sub {
+      font-size: var(--text-body-sm);
+      color: var(--hud-cyan);
+      margin-top: var(--space-1);
+      font-family: var(--font-mono);
+    }
+
+    .hud-panel-sub.warning { color: var(--hud-amber); }
+    .hud-panel-sub.error { color: var(--hud-red); }
+
+    .hud-action-panel {
+      background: var(--hud-panel);
+      border: 1px solid var(--hud-border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+      text-align: center;
+      margin-bottom: var(--space-5);
+    }
+
+    .hud-btn {
+      background: transparent;
+      border: 1px solid var(--hud-cyan);
+      color: var(--hud-cyan);
+      padding: var(--space-3) var(--space-6);
+      font-family: var(--font-mono);
+      font-size: var(--text-body-sm);
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+      transition: all var(--duration-fast) var(--ease-out);
+      box-shadow: 0 0 10px rgba(6, 182, 212, 0.1);
+      text-transform: uppercase;
+      min-height: var(--touch-target);
+      min-width: var(--touch-target-lg);
+    }
+
+    .hud-btn:hover:not(:disabled) {
+      background: var(--hud-cyan);
+      color: var(--hud-bg);
+      box-shadow: 0 0 20px var(--hud-glow);
+    }
+
+    .hud-btn:active:not(:disabled) { transform: scale(0.98); }
+    .hud-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .hud-btn.secondary { border-color: var(--hud-amber); color: var(--hud-amber); box-shadow: 0 0 10px var(--hud-glow-amber); }
+    .hud-btn.secondary:hover:not(:disabled) { background: var(--hud-amber); color: var(--hud-bg); box-shadow: 0 0 20px var(--hud-glow-amber); }
+
+    .hud-permission-text {
+      margin: 0 0 var(--space-4);
+      font-size: var(--text-body-sm);
+      color: var(--hud-muted);
+      line-height: 1.6;
+    }
+
+    .hud-canvas {
+      width: 100%;
+      height: 140px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--hud-border);
+      border-radius: var(--radius-md);
+      margin-top: var(--space-3);
+    }
+
+    [data-theme="light"] .hud-canvas { background: rgba(0, 0, 0, 0.05); }
+
+    .nav-back {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      color: var(--hud-muted);
+      text-decoration: none;
+      font-size: var(--text-caption);
+      letter-spacing: 0.05em;
+      margin-top: var(--space-4);
+      padding: var(--space-2) var(--space-3);
+      border-radius: var(--radius-pill-sm);
+      transition: all var(--duration-fast);
+    }
+
+    .nav-back:hover { color: var(--hud-cyan); background: rgba(6, 182, 212, 0.1); }
+
+    .scope-legend {
+      display: flex;
+      justify-content: space-between;
+      font-size: var(--text-caption);
+      color: var(--hud-dim);
+      margin-top: var(--space-2);
+      font-family: var(--font-mono);
+    }
+
+    .value-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: var(--space-1) 0;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+    .value-row:last-child { border-bottom: none; }
+    .value-label { color: var(--hud-muted); font-size: var(--text-body-sm); }
+    .value-data { color: var(--hud-text); font-family: var(--font-mono); font-weight: 500; text-align: right; }
+
+    .compass-visual {
+      width: 120px;
+      height: 120px;
+      margin: var(--space-3) auto;
+      border: 2px solid var(--hud-border);
+      border-radius: 50%;
+      position: relative;
+      background: radial-gradient(circle at center, rgba(6, 182, 212, 0.05), transparent 70%);
+    }
+    .compass-needle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 2px;
+      height: 50px;
+      background: var(--hud-cyan);
+      transform-origin: bottom center;
+      transform: translate(-50%, -100%) rotate(0deg);
+      transition: transform 0.1s linear;
+      border-radius: 1px;
+    }
+    .compass-needle::before {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: -4px;
+      width: 10px;
+      height: 10px;
+      background: var(--hud-cyan);
+      clip-path: polygon(50% 0, 100% 100%, 0 100%);
+    }
+    .compass-rose {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      font-size: 10px;
+      color: var(--hud-dim);
+      font-family: var(--font-mono);
+    }
+    .compass-rose span {
+      position: absolute;
+      transform: translate(-50%, -50%);
+    }
+    .compass-rose .n { top: 8%; left: 50%; }
+    .compass-rose .e { top: 50%; left: 92%; }
+    .compass-rose .s { top: 92%; left: 50%; }
+    .compass-rose .w { top: 50%; left: 8%; }
+
+    .mic-visual {
+      height: 60px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 3px;
+      margin-top: var(--space-3);
+      padding: var(--space-2);
+      background: rgba(0,0,0,0.2);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--hud-border);
+    }
+    .mic-bar {
+      width: 6px;
+      background: linear-gradient(to top, var(--hud-cyan), var(--hud-green));
+      border-radius: 2px;
+      transition: height 0.05s linear;
+      min-height: 2px;
+    }
+
+    .sensor-grid-compact {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-2);
+      margin-top: var(--space-2);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .status-badge { animation: none; }
+      .hud-btn { transition: none; }
+      .compass-needle { transition: none; }
+      .mic-bar { transition: none; }
+    }
+
+    .api-status {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-1);
+      font-size: var(--text-caption);
+      padding: var(--space-1) var(--space-2);
+      border-radius: var(--radius-pill-sm);
+      background: rgba(0,0,0,0.2);
+      border: 1px solid var(--hud-border);
+    }
+    .api-status.supported { border-color: var(--hud-green); color: var(--hud-green); }
+    .api-status.unsupported { border-color: var(--hud-red); color: var(--hud-red); }
+    .api-status.pending { border-color: var(--hud-amber); color: var(--hud-amber); }
+  </style>
+</head>
+<body class="hud-page">
+
+  <!-- Top Nav (Desktop) -->
+  <header class="nav-top">
+    <div class="nav-top-inner">
+      <a href="index.html" class="nav-brand" aria-label="PE1 Startseite">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+          <line x1="12" y1="22.08" x2="12" y2="12"/>
+        </svg>
+        PE1
+      </a>
+      <nav class="nav-links" aria-label="Hauptnavigation">
+        <a href="index.html" class="nav-link">Start</a>
+        <a href="compass.html" class="nav-link">Kompass</a>
+        <a href="visualizer.html" class="nav-link">Visualizer</a>
+        <a href="motion-sounds.html" class="nav-link">Motion Sounds</a>
+        <a href="sensor-hud.html" class="nav-link">Sensor HUD</a>
+        <a href="sensors.html" class="nav-link active" aria-current="page">Sensor HUD Pro</a>
+        <a href="about.html" class="nav-link">Über</a>
+        <a href="contact.html" class="nav-link">Kontakt</a>
+      </nav>
+      <button class="theme-toggle" id="themeToggle" aria-label="Design-Modus wechseln" title="Theme wechseln">
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1" x2="12" y2="3"/>
+          <line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/>
+          <line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main style="flex: 1; padding-top: var(--space-6); padding-bottom: var(--space-10);">
+    <div class="hud-container">
+      <header class="hud-header">
+        <h1>PE1 // Sensor HUD Pro v2.0</h1>
+        <div class="status-badge" id="systemStatus">SYSTEM ONLINE</div>
+      </header>
+
+      <div class="hud-action-panel" id="permissionPanel">
+        <p class="hud-permission-text" id="permissionText">Sensor-Subsystem erfordert Freigabe für Bewegung & Ausrichtung. Mikrofon-Zugriff optional für Audio-Pegel.</p>
+        <div style="display: flex; gap: var(--space-3); justify-content: center; flex-wrap: wrap;">
+          <button class="hud-btn" onclick="requestAllPermissions()" id="sensorBtn">Alle Sensoren aktivieren</button>
+          <button class="hud-btn secondary" onclick="requestMicPermission()" id="micBtn">Mikrofon aktivieren</button>
+        </div>
+        <div id="apiStatus" style="margin-top: var(--space-4); display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: center;"></div>
+      </div>
+
+      <div class="hud-grid">
+        <!-- Beschleunigung & Schwerkraft -->
+        <div class="hud-panel" id="panelAccel">
+          <div class="hud-panel-title">
+            <span class="sensor-indicator" id="indAccel"></span>
+            Beschleunigung & Schwerkraft
+          </div>
+          <div class="hud-panel-value" id="valAccelTotal">0.00 m/s²</div>
+          <div class="sensor-grid-compact">
+            <div class="value-row"><span class="value-label">X</span><span class="value-data" id="valAccelX">0.00</span></div>
+            <div class="value-row"><span class="value-label">Y</span><span class="value-data" id="valAccelY">0.00</span></div>
+            <div class="value-row"><span class="value-label">Z</span><span class="value-data" id="valAccelZ">0.00</span></div>
+            <div class="value-row"><span class="value-label">Intervall</span><span class="value-data" id="valAccelInterval">—</span></div>
+          </div>
+        </div>
+
+        <!-- Lage & Neigung -->
+        <div class="hud-panel" id="panelOrient">
+          <div class="hud-panel-title">
+            <span class="sensor-indicator" id="indOrient"></span>
+            Lage & Neigung (Orientation)
+          </div>
+          <div class="hud-panel-value" id="valOrientMain">α: 0° | β: 0° | γ: 0°</div>
+          <div class="sensor-grid-compact">
+            <div class="value-row"><span class="value-label">Alpha (Z)</span><span class="value-data" id="valAlpha">0°</span></div>
+            <div class="value-row"><span class="value-label">Beta (X)</span><span class="value-data" id="valBeta">0°</span></div>
+            <div class="value-row"><span class="value-label">Gamma (Y)</span><span class="value-data" id="valGamma">0°</span></div>
+            <div class="value-row"><span class="value-label">Absolute</span><span class="value-data" id="valAbsolute">—</span></div>
+          </div>
+        </div>
+
+        <!-- Kompass & Magnetfeld -->
+        <div class="hud-panel" id="panelCompass">
+          <div class="hud-panel-title">
+            <span class="sensor-indicator" id="indCompass"></span>
+            Kompass & Magnetfeld
+          </div>
+          <div class="hud-panel-value" id="valHeading">—°</div>
+          <div class="compass-visual" aria-label="Kompass-Visualisierung">
+            <div class="compass-needle" id="compassNeedle"></div>
+            <div class="compass-rose">
+              <span class="n">N</span><span class="e">O</span><span class="s">S</span><span class="w">W</span>
+            </div>
+          </div>
+          <div class="sensor-grid-compact">
+            <div class="value-row"><span class="value-label">Richtung</span><span class="value-data" id="valCardinal">—</span></div>
+            <div class="value-row"><span class="value-label">Mag X</span><span class="value-data" id="valMagX">— µT</span></div>
+            <div class="value-row"><span class="value-label">Mag Y</span><span class="value-data" id="valMagY">— µT</span></div>
+            <div class="value-row"><span class="value-label">Mag Z</span><span class="value-data" id="valMagZ">— µT</span></div>
+            <div class="value-row"><span class="value-label">|B| Gesamt</span><span class="value-data" id="valMagTotal">— µT</span></div>
+          </div>
+        </div>
+
+        <!-- Umgebungslicht -->
+        <div class="hud-panel" id="panelLight">
+          <div class="hud-panel-title">
+            <span class="sensor-indicator" id="indLight"></span>
+            Umgebungslicht
+          </div>
+          <div class="hud-panel-value" id="valIlluminance">— lx</div>
+          <div class="hud-panel-sub" id="valLightCategory">Warte auf Sensor...</div>
+          <div class="sensor-grid-compact">
+            <div class="value-row"><span class="value-label">Kategorie</span><span class="value-data" id="valLightCat">—</span></div>
+            <div class="value-row"><span class="value-label">Sensor</span><span class="value-data" id="valLightSensor">—</span></div>
+          </div>
+        </div>
+
+        <!-- Audio-Pegel / Mikrofon -->
+        <div class="hud-panel" id="panelAudio">
+          <div class="hud-panel-title">
+            <span class="sensor-indicator" id="indAudio"></span>
+            Audio-Pegel (Mikrofon)
+          </div>
+          <div class="hud-panel-value" id="valAudioLevel">— dB</div>
+          <div class="mic-visual" id="micVisual" aria-label="Audio-Pegel Visualisierung">
+            <!-- Bars generated by JS -->
+          </div>
+          <div class="sensor-grid-compact">
+            <div class="value-row"><span class="value-label">RMS</span><span class="value-data" id="valAudioRMS">—</span></div>
+            <div class="value-row"><span class="value-label">Peak</span><span class="value-data" id="valAudioPeak">—</span></div>
+            <div class="value-row"><span class="value-label">Status</span><span class="value-data" id="valAudioStatus">Inaktiv</span></div>
+          </div>
+        </div>
+
+        <!-- Batterie -->
+        <div class="hud-panel" id="panelBattery">
+          <div class="hud-panel-title">
+            <span class="sensor-indicator" id="indBattery"></span>
+            Energie-Status
+          </div>
+          <div class="hud-panel-value" id="valBattery">—%</div>
+          <div class="hud-panel-sub" id="valBatteryState">Ladezustand: —</div>
+          <div class="sensor-grid-compact">
+            <div class="value-row"><span class="value-label">Ladezeit</span><span class="value-data" id="valBatteryChargeTime">—</span></div>
+            <div class="value-row"><span class="value-label">Restzeit</span><span class="value-data" id="valBatteryDischargeTime">—</span></div>
+          </div>
+        </div>
+
+        <!-- Netzwerk -->
+        <div class="hud-panel" id="panelNetwork">
+          <div class="hud-panel-title">
+            <span class="sensor-indicator" id="indNetwork"></span>
+            Netzwerk-Link
+          </div>
+          <div class="hud-panel-value" id="valNetwork">—</div>
+          <div class="hud-panel-sub" id="valNetworkType">Typ: —</div>
+          <div class="sensor-grid-compact">
+            <div class="value-row"><span class="value-label">Downlink</span><span class="value-data" id="valDownlink">— Mbps</span></div>
+            <div class="value-row"><span class="value-label">RTT</span><span class="value-data" id="valRtt">— ms</span></div>
+            <div class="value-row"><span class="value-label">Save Data</span><span class="value-data" id="valSaveData">—</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Oszilloskop / Graph Panel -->
+      <div class="hud-panel">
+        <div class="hud-panel-title">
+          <span class="sensor-indicator active"></span>
+          Sensor-Oszilloskop (Live-Abtastung: Z-Beschleunigung)
+        </div>
+        <canvas id="scopeCanvas" class="hud-canvas" aria-label="Live-Sensor-Oszilloskop"></canvas>
+        <div class="scope-legend">
+          <span>−10 m/s²</span>
+          <span>0 m/s²</span>
+          <span>+10 m/s²</span>
+        </div>
+      </div>
+
+      <div style="text-align: center; margin-top: var(--space-6);">
+        <a href="index.html" class="nav-back" aria-label="Zurück zur Hauptseite">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          ZURÜCK ZUR HAUPTSEITE
+        </a>
+      </div>
+    </div>
+  </main>
+
+  <!-- Bottom Nav (Mobile/Tablet) -->
+  <nav class="nav-bottom" aria-label="Hauptnavigation">
+    <a href="index.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        <polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+      <span>Start</span>
+    </a>
+    <a href="compass.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <polygon points="12 2 15 8 12 8"/>
+        <polygon points="12 22 15 16 12 16"/>
+        <polygon points="2 12 8 15 8 12"/>
+        <polygon points="22 12 16 15 16 12"/>
+      </svg>
+      <span>Kompass</span>
+    </a>
+    <a href="visualizer.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polygon points="17 3 5 3 3 9 5 15 17 15 19 9"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+        <line x1="5" y1="9" x2="17" y2="9"/>
+      </svg>
+      <span>Visualizer</span>
+    </a>
+    <a href="motion-sounds.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M11 5L6 9H2v14h20V9H13L11 5z"/>
+        <path d="M19 3l-1 1"/>
+        <path d="M21 3l-3 3 3 3"/>
+        <path d="M23 9V5l-2 2"/>
+      </svg>
+      <span>Sounds</span>
+    </a>
+    <a href="sensor-hud.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+        <path d="M9 17v-5M15 17v-9"/>
+        <line x1="3" y1="12" x2="21" y2="12"/>
+      </svg>
+      <span>Sensor HUD</span>
+    </a>
+    <a href="sensors.html" class="nav-item active" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+        <path d="M9 9h6v6M15 9v6M9 15h6"/>
+        <circle cx="9" cy="9" r="1" fill="currentColor"/>
+        <circle cx="15" cy="9" r="1" fill="currentColor"/>
+        <circle cx="9" cy="15" r="1" fill="currentColor"/>
+        <circle cx="15" cy="15" r="1" fill="currentColor"/>
+      </svg>
+      <span>HUD Pro</span>
+    </a>
+    <a href="about.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 16v-4"/>
+        <path d="M12 8h.01"/>
+      </svg>
+      <span>Über</span>
+    </a>
+    <a href="contact.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+        <circle cx="12" cy="10" r="3"/>
+      </svg>
+      <span>Kontakt</span>
+    </a>
+  </nav>
+
+  <footer>
+    <p>&copy; 2026 PE1. <a href="https://github.com/BavarianOne/PE1" style="color: var(--color-accent); text-decoration: none;">GitHub</a></p>
+  </footer>
+
+  <script src="app.js"></script>
+  <script>
+    // ============ CANVAS OSCILLOSCOPE ============
+    const canvas = document.getElementById('scopeCanvas');
+    const ctx = canvas.getContext('2d');
+    let historyData = new Array(80).fill(0);
+    let lastAccelTime = performance.now();
+
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = canvas.clientWidth * dpr;
+      canvas.height = canvas.clientHeight * dpr;
+      ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function drawScope(val) {
+      historyData.push(val);
+      historyData.shift();
+
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+
+      ctx.clearRect(0, 0, width, height);
+
+      // Grid lines
+      ctx.strokeStyle = 'rgba(6, 182, 212, 0.08)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const y = (height / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+
+      // Center line
+      ctx.strokeStyle = 'rgba(6, 182, 212, 0.15)';
+      ctx.beginPath();
+      ctx.moveTo(0, height / 2);
+      ctx.lineTo(width, height / 2);
+      ctx.stroke();
+
+      // Signal line
+      ctx.strokeStyle = '#06b6d4';
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+
+      const step = width / (historyData.length - 1);
+      for (let i = 0; i < historyData.length; i++) {
+        const x = i * step;
+        const y = height / 2 - (historyData[i] * (height / 25));
+        const clampedY = Math.max(2, Math.min(height - 2, y));
+        if (i === 0) ctx.moveTo(x, clampedY);
+        else ctx.lineTo(x, clampedY);
+      }
+      ctx.stroke();
+
+      // Current value dot
+      const lastX = width;
+      const lastY = height / 2 - (historyData[historyData.length - 1] * (height / 25));
+      ctx.fillStyle = '#06b6d4';
+      ctx.beginPath();
+      ctx.arc(lastX, Math.max(4, Math.min(height - 4, lastY)), 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    // ============ MICROPHONE VISUALIZER ============
+    let audioContext = null;
+    let analyser = null;
+    let microphone = null;
+    let dataArray = null;
+    let micAnimationId = null;
+    const MIC_BAR_COUNT = 32;
+
+    function initMicVisual() {
+      const container = document.getElementById('micVisual');
+      container.innerHTML = '';
+      for (let i = 0; i < MIC_BAR_COUNT; i++) {
+        const bar = document.createElement('div');
+        bar.className = 'mic-bar';
+        bar.style.height = '2px';
+        bar.dataset.index = i;
+        container.appendChild(bar);
+      }
+    }
+
+    function updateMicVisual() {
+      if (!analyser || !dataArray) return;
+      analyser.getByteFrequencyData(dataArray);
+
+      const bars = document.querySelectorAll('#micVisual .mic-bar');
+      const maxHeight = 56;
+
+      // Use first half of frequency bins for visualization
+      for (let i = 0; i < MIC_BAR_COUNT; i++) {
+        const binIndex = Math.floor(i * (dataArray.length / 2) / MIC_BAR_COUNT);
+        const value = dataArray[binIndex] / 255; // 0-1
+        const height = Math.max(2, value * maxHeight);
+        bars[i].style.height = height + 'px';
+        // Color based on height
+        const hue = 180 - (value * 120); // cyan to green
+        bars[i].style.background = `hsl(${hue}, 80%, 50%)`;
+      }
+
+      // Calculate RMS and Peak
+      let sum = 0;
+      let peak = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        const v = dataArray[i] / 255;
+        sum += v * v;
+        peak = Math.max(peak, v);
+      }
+      const rms = Math.sqrt(sum / dataArray.length);
+      const db = 20 * Math.log10(rms + 0.0001);
+      const peakDb = 20 * Math.log10(peak + 0.0001);
+
+      document.getElementById('valAudioLevel').textContent = db.toFixed(1) + ' dB';
+      document.getElementById('valAudioRMS').textContent = (rms * 100).toFixed(1) + '%';
+      document.getElementById('valAudioPeak').textContent = (peak * 100).toFixed(1) + '%';
+
+      micAnimationId = requestAnimationFrame(updateMicVisual);
+    }
+
+    async function requestMicPermission() {
+      const btn = document.getElementById('micBtn');
+      try {
+        btn.disabled = true;
+        btn.textContent = 'ANFRAGE...';
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false }, video: false });
+
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0.3;
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+        microphone = audioContext.createMediaStreamSource(stream);
+        microphone.connect(analyser);
+
+        initMicVisual();
+        updateMicVisual();
+
+        document.getElementById('valAudioStatus').textContent = 'Aktiv';
+        document.getElementById('indAudio').classList.add('active');
+        document.getElementById('panelAudio').classList.remove('warning', 'error');
+
+        btn.textContent = 'MIKROFON LAUFT';
+        btn.classList.add('secondary');
+        btn.style.background = 'var(--hud-green)';
+        btn.style.borderColor = 'var(--hud-green)';
+        btn.style.color = 'var(--hud-bg)';
+      } catch (e) {
+        console.error('Mic error:', e);
+        document.getElementById('valAudioStatus').textContent = 'Verweigert/Fehler';
+        document.getElementById('indAudio').classList.add('error');
+        document.getElementById('panelAudio').classList.add('error');
+        btn.disabled = false;
+        btn.textContent = 'FEHLER';
+      }
+    }
+
+    // ============ SENSOR PERMISSIONS & INIT ============
+    let sensorsEnabled = false;
+    let magnetometer = null;
+    let ambientLightSensor = null;
+    let accelInterval = null;
+
+    function updateApiStatus() {
+      const container = document.getElementById('apiStatus');
+      const apis = [
+        { name: 'DeviceMotion', supported: 'DeviceMotionEvent' in window, required: true },
+        { name: 'DeviceOrientation', supported: 'DeviceOrientationEvent' in window, required: true },
+        { name: 'Magnetometer', supported: 'Magnetometer' in window, required: false },
+        { name: 'AmbientLightSensor', supported: 'AmbientLightSensor' in window, required: false },
+        { name: 'Battery', supported: 'getBattery' in navigator, required: false },
+        { name: 'Network Info', supported: 'connection' in navigator, required: false },
+        { name: 'Web Audio', supported: 'AudioContext' in window || 'webkitAudioContext' in window, required: false },
+      ];
+
+      container.innerHTML = apis.map(api => {
+        let cls = 'api-status ';
+        if (!api.supported) cls += 'unsupported';
+        else if (api.required && !sensorsEnabled) cls += 'pending';
+        else cls += 'supported';
+        return `<span class="${cls}">${api.name}${!api.supported ? ' ✗' : sensorsEnabled || !api.required ? ' ✓' : ' ⏳'}</span>`;
+      }).join('');
+    }
+
+    async function requestAllPermissions() {
+      const btn = document.getElementById('sensorBtn');
+      const text = document.getElementById('permissionText');
+      const panel = document.getElementById('permissionPanel');
+
+      // iOS DeviceMotion permission
+      if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        try {
+          btn.disabled = true;
+          btn.textContent = 'BEWEGUNG ANFRAGEN...';
+          const response = await DeviceMotionEvent.requestPermission();
+          if (response !== 'granted') {
+            text.textContent = 'Bewegungssensor-Zugriff verweigert. Einige Funktionen nicht verfügbar.';
+            btn.disabled = false;
+            btn.textContent = 'ERNEUT VERSUCHEN';
+            return;
+          }
+        } catch (e) {
+          console.error('DeviceMotion permission error:', e);
+        }
+      }
+
+      // iOS DeviceOrientation permission (iOS 13+)
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+          btn.textContent = 'AUSRICHTUNG ANFRAGEN...';
+          const response = await DeviceOrientationEvent.requestPermission();
+          if (response !== 'granted') {
+            text.textContent = 'Ausrichtungssensor-Zugriff verweigert. Kompass nicht verfügbar.';
+          }
+        } catch (e) {
+          console.error('DeviceOrientation permission error:', e);
+        }
+      }
+
+      initAllSensors();
+      sensorsEnabled = true;
+      panel.style.display = 'none';
+      updateApiStatus();
+    }
+
+    function initAllSensors() {
+      // --- DeviceMotion: Acceleration + Gravity ---
+      let lastMotionTime = performance.now();
+      window.addEventListener('devicemotion', (e) => {
+        const now = performance.now();
+        const interval = now - lastMotionTime;
+        lastMotionTime = now;
+
+        const acc = e.accelerationIncludingGravity;
+        const accG = e.acceleration; // without gravity (rarely supported)
+
+        if (acc) {
+          const total = Math.sqrt((acc.x || 0)**2 + (acc.y || 0)**2 + (acc.z || 0)**2);
+          document.getElementById('valAccelTotal').textContent = total.toFixed(2) + ' m/s²';
+          document.getElementById('valAccelX').textContent = (acc.x || 0).toFixed(2);
+          document.getElementById('valAccelY').textContent = (acc.y || 0).toFixed(2);
+          document.getElementById('valAccelZ').textContent = (acc.z || 0).toFixed(2);
+          document.getElementById('valAccelInterval').textContent = interval.toFixed(0) + ' ms';
+          drawScope(acc.z || 0);
+        }
+
+        if (accG) {
+          document.getElementById('valAccelX').textContent += ` (G:${(accG.x||0).toFixed(2)})`;
+          document.getElementById('valAccelY').textContent += ` (G:${(accG.y||0).toFixed(2)})`;
+          document.getElementById('valAccelZ').textContent += ` (G:${(accG.z||0).toFixed(2)})`;
+        }
+
+        document.getElementById('indAccel').classList.add('active');
+        document.getElementById('panelAccel').classList.remove('warning', 'error');
+      }, { passive: true });
+
+      // --- DeviceOrientation: Alpha, Beta, Gamma ---
+      window.addEventListener('deviceorientation', (e) => {
+        const alpha = e.alpha ?? 0;
+        const beta = e.beta ?? 0;
+        const gamma = e.gamma ?? 0;
+        const absolute = e.absolute;
+
+        document.getElementById('valOrientMain').textContent = `α:${Math.round(alpha)}° | β:${Math.round(beta)}° | γ:${Math.round(gamma)}°`;
+        document.getElementById('valAlpha').textContent = alpha.toFixed(1) + '°';
+        document.getElementById('valBeta').textContent = beta.toFixed(1) + '°';
+        document.getElementById('valGamma').textContent = gamma.toFixed(1) + '°';
+        document.getElementById('valAbsolute').textContent = absolute ? 'Ja' : 'Nein';
+
+        // Fallback compass if no Magnetometer API
+        if (!magnetometer) {
+          updateCompassFromOrientation(alpha, beta, gamma);
+        }
+
+        document.getElementById('indOrient').classList.add('active');
+        document.getElementById('panelOrient').classList.remove('warning', 'error');
+      }, { passive: true });
+
+      // --- Magnetometer API (modern, accurate) ---
+      if ('Magnetometer' in window) {
+        try {
+          magnetometer = new Magnetometer({ frequency: 20, referenceFrame: 'device' });
+          magnetometer.addEventListener('reading', () => {
+            const x = magnetometer.x;
+            const y = magnetometer.y;
+            const z = magnetometer.z;
+            const total = Math.sqrt(x*x + y*y + z*z);
+
+            document.getElementById('valMagX').textContent = x.toFixed(1) + ' µT';
+            document.getElementById('valMagY').textContent = y.toFixed(1) + ' µT';
+            document.getElementById('valMagZ').textContent = z.toFixed(1) + ' µT';
+            document.getElementById('valMagTotal').textContent = total.toFixed(1) + ' µT';
+
+            // Calculate heading from magnetometer (device frame)
+            let heading = Math.atan2(y, x) * 180 / Math.PI;
+            if (heading < 0) heading += 360;
+            updateCompassVisual(heading);
+
+            document.getElementById('indCompass').classList.add('active');
+            document.getElementById('panelCompass').classList.remove('warning', 'error');
+          });
+          magnetometer.addEventListener('error', (e) => {
+            console.warn('Magnetometer error:', e.error?.name);
+            document.getElementById('indCompass').classList.add('warning');
+            document.getElementById('panelCompass').classList.add('warning');
+            document.getElementById('valMagX').textContent = 'Fehler';
+          });
+          magnetometer.start();
+        } catch (e) {
+          console.warn('Magnetometer init failed:', e);
+          document.getElementById('indCompass').classList.add('error');
+          document.getElementById('panelCompass').classList.add('error');
+        }
+      } else {
+        document.getElementById('valMagX').textContent = 'N/A';
+        document.getElementById('valMagY').textContent = 'N/A';
+        document.getElementById('valMagZ').textContent = 'N/A';
+        document.getElementById('valMagTotal').textContent = 'N/A (API fehlt)';
+        document.getElementById('indCompass').classList.add('warning');
+        document.getElementById('panelCompass').classList.add('warning');
+      }
+
+      // --- Ambient Light Sensor ---
+      if ('AmbientLightSensor' in window) {
+        try {
+          ambientLightSensor = new AmbientLightSensor({ frequency: 5 });
+          ambientLightSensor.addEventListener('reading', () => {
+            const lux = ambientLightSensor.illuminance;
+            document.getElementById('valIlluminance').textContent = lux.toFixed(1) + ' lx';
+            document.getElementById('valLightSensor').textContent = 'Aktiv';
+
+            let category = '';
+            if (lux < 1) category = 'Dunkel (Nacht)';
+            else if (lux < 50) category = 'Sehr dunkel';
+            else if (lux < 200) category = 'Innenraum (dunkel)';
+            else if (lux < 500) category = 'Innenraum (hell)';
+            else if (lux < 1000) category = 'Sehr hell / Büro';
+            else if (lux < 10000) category = 'Tageslicht (Schatten)';
+            else category = 'Direktes Sonnenlicht';
+
+            document.getElementById('valLightCategory').textContent = category;
+            document.getElementById('valLightCat').textContent = category;
+
+            document.getElementById('indLight').classList.add('active');
+            document.getElementById('panelLight').classList.remove('warning', 'error');
+          });
+          ambientLightSensor.addEventListener('error', (e) => {
+            console.warn('Light sensor error:', e.error?.name);
+            document.getElementById('indLight').classList.add('error');
+            document.getElementById('panelLight').classList.add('error');
+            document.getElementById('valIlluminance').textContent = 'Fehler';
+          });
+          ambientLightSensor.start();
+        } catch (e) {
+          console.warn('AmbientLightSensor init failed:', e);
+          document.getElementById('indLight').classList.add('error');
+          document.getElementById('panelLight').classList.add('error');
+          document.getElementById('valIlluminance').textContent = 'N/A';
+          document.getElementById('valLightCategory').textContent = 'Nicht unterstützt';
+        }
+      } else {
+        document.getElementById('valIlluminance').textContent = 'N/A';
+        document.getElementById('valLightCategory').textContent = 'API nicht verfügbar';
+        document.getElementById('valLightSensor').textContent = 'Fehlt';
+        document.getElementById('indLight').classList.add('error');
+        document.getElementById('panelLight').classList.add('error');
+      }
+
+      // --- Battery API ---
+      if (navigator.getBattery) {
+        navigator.getBattery().then(battery => {
+          function updateBattery() {
+            const pct = Math.round(battery.level * 100);
+            document.getElementById('valBattery').textContent = pct + '%';
+            document.getElementById('valBatteryState').textContent = battery.charging ? 'Status: Lädt ⚡' : 'Status: Akku-Betrieb 🔋';
+            document.getElementById('valBatteryChargeTime').textContent = battery.chargingTime === Infinity ? '—' : formatTime(battery.chargingTime);
+            document.getElementById('valBatteryDischargeTime').textContent = battery.dischargingTime === Infinity ? '—' : formatTime(battery.dischargingTime);
+
+            document.getElementById('indBattery').classList.add('active');
+            document.getElementById('panelBattery').classList.remove('warning', 'error');
+          }
+          updateBattery();
+          battery.addEventListener('levelchange', updateBattery);
+          battery.addEventListener('chargingchange', updateBattery);
+          battery.addEventListener('chargingtimechange', updateBattery);
+          battery.addEventListener('dischargingtimechange', updateBattery);
+        });
+      } else {
+        document.getElementById('valBattery').textContent = 'N/A';
+        document.getElementById('valBatteryState').textContent = 'API nicht unterstützt';
+        document.getElementById('indBattery').classList.add('error');
+        document.getElementById('panelBattery').classList.add('error');
+      }
+
+      // --- Network Information API ---
+      function updateNetwork() {
+        const online = navigator.onLine;
+        document.getElementById('valNetwork').textContent = online ? 'VERBUNDEN' : 'OFFLINE';
+        document.getElementById('valNetwork').style.color = online ? 'var(--hud-green)' : 'var(--hud-red)';
+
+        const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        if (conn) {
+          document.getElementById('valNetworkType').textContent = `Typ: ${conn.effectiveType ? conn.effectiveType.toUpperCase() : 'Unbekannt'}`;
+          document.getElementById('valDownlink').textContent = conn.downlink ? conn.downlink.toFixed(1) + ' Mbps' : '—';
+          document.getElementById('valRtt').textContent = conn.rtt ? conn.rtt + ' ms' : '—';
+          document.getElementById('valSaveData').textContent = conn.saveData ? 'Aktiv 📴' : 'Inaktiv';
+
+          document.getElementById('indNetwork').classList.add('active');
+          document.getElementById('panelNetwork').classList.remove('warning', 'error');
+        } else {
+          document.getElementById('valNetworkType').textContent = 'Typ: API nicht verfügbar';
+          document.getElementById('indNetwork').classList.add('warning');
+          document.getElementById('panelNetwork').classList.add('warning');
+        }
+      }
+      window.addEventListener('online', updateNetwork);
+      window.addEventListener('offline', updateNetwork);
+      updateNetwork();
+
+      updateApiStatus();
+    }
+
+    function updateCompassFromOrientation(alpha, beta, gamma) {
+      // Rough heading from alpha (only works if device is flat)
+      let heading = 360 - alpha; // alpha is 0 at north, increases clockwise
+      if (heading >= 360) heading -= 360;
+      updateCompassVisual(heading);
+    }
+
+    function updateCompassVisual(heading) {
+      document.getElementById('compassNeedle').style.transform = `translate(-50%, -100%) rotate(${heading}deg)`;
+      document.getElementById('valHeading').textContent = heading.toFixed(1) + '°';
+
+      const cardinals = ['N', 'NNO', 'NO', 'ONO', 'O', 'OSO', 'SO', 'SSO', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+      const index = Math.round(heading / 22.5) % 16;
+      document.getElementById('valCardinal').textContent = cardinals[index];
+    }
+
+    function formatTime(seconds) {
+      if (seconds === Infinity || isNaN(seconds)) return '—';
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = Math.floor(seconds % 60);
+      if (h > 0) return `${h}h ${m}m`;
+      if (m > 0) return `${m}m ${s}s`;
+      return `${s}s`;
+    }
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+      if (magnetometer) magnetometer.stop();
+      if (ambientLightSensor) ambientLightSensor.stop();
+      if (micAnimationId) cancelAnimationFrame(micAnimationId);
+      if (audioContext) audioContext.close();
+    });
+
+    // Initial API status
+    updateApiStatus();
+  </script>
+</body>
+</html>
