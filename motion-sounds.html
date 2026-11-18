@@ -349,12 +349,12 @@
                                   this.humFilter = ctx.createBiquadFilter();
                                   this.humFilter.type = 'lowpass';
                                   this.humFilter.frequency.value = 300;  // Start dark
-                                  this.humFilter.Q.value = 12.0;         // High Q for scream/resonance
+                                  this.humFilter.Q.value = 10.0;         // Q=10 for vocal/tube scream character
                                   this.humFilter.connect(this.humGain);
 
                                   // Distortion (WaveShaper) for dirty plasma growl (POST-filter)
                                   this.distortion = ctx.createWaveShaper();
-                                  this.distortion.curve = this.createDistortionCurve(30);
+                                  this.distortion.curve = this.createDistortionCurve(25);  // k=25 for slightly less grit
                                   this.distortion.oversample = '4x';
                                   // Insert distortion between filter and gain
                                   this.humFilter.disconnect();
@@ -432,54 +432,70 @@
                                   }
                                 },
 
-                                // Call when sound is activated (ignition)
+                                // Call when sound is activated (ignition) - noise burst + quick hum lock
                                 activate() {
                                   if (this.isActive || !audioCtx) return;
                                   this.isActive = true;
                                   const now = audioCtx.currentTime;
 
-                                  // Ignition pitch sweep: start high, fall to base frequency
-                                  const ignitionStartFreq = this.baseFreq * 4;  // ~220Hz
-                                  [this.humOscA, this.humOscB, this.humSubOsc].forEach((osc, i) => {
-                                    if (!osc) return;
-                                    const targetFreq = [this.baseFreq, 56.5, this.baseFreq * 0.5][i];
-                                    osc.frequency.cancelScheduledValues(now);
-                                    osc.frequency.setValueAtTime(ignitionStartFreq / (i === 2 ? 2 : 1), now);
-                                    osc.frequency.exponentialRampToValueAtTime(targetFreq, now + 0.35);
-                                  });
+                                  // IGNITION: Short noise burst (crack) then immediate stable hum
+                                  // 1. Noise burst for the "snap" of ignition
+                                  const igniteNoiseSize = audioCtx.sampleRate * 0.08;
+                                  const igniteBuffer = audioCtx.createBuffer(1, igniteNoiseSize, audioCtx.sampleRate);
+                                  const igniteData = igniteBuffer.getChannelData(0);
+                                  for (let i = 0; i < igniteNoiseSize; i++) {
+                                    const decay = Math.exp(-i / (igniteNoiseSize * 0.15));
+                                    igniteData[i] = (Math.random() * 2 - 1) * decay * 0.6;
+                                  }
+                                  const igniteNoise = audioCtx.createBufferSource();
+                                  igniteNoise.buffer = igniteBuffer;
+                                  const igniteFilter = audioCtx.createBiquadFilter();
+                                  igniteFilter.type = 'bandpass';
+                                  igniteFilter.frequency.value = 800;
+                                  igniteFilter.Q.value = 4;
+                                  const igniteGain = audioCtx.createGain();
+                                  igniteGain.gain.value = 0;
+                                  igniteNoise.connect(igniteFilter);
+                                  igniteFilter.connect(igniteGain);
+                                  if (this.panner) {
+                                    igniteGain.connect(this.panner);
+                                  } else {
+                                    igniteGain.connect(audioCtx.destination);
+                                  }
+                                  igniteGain.gain.setValueAtTime(0.0, now);
+                                  igniteGain.gain.linearRampToValueAtTime(0.4, now + 0.005);
+                                  igniteGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+                                  igniteNoise.start(now);
+                                  setTimeout(() => { igniteNoise.stop(); igniteNoise.disconnect(); igniteFilter.disconnect(); igniteGain.disconnect(); }, 200);
 
-                                  // Filter sweep open during ignition (300 -> 800Hz)
+                                  // 2. OSCs stay FIXED at base frequencies (NO pitch sweep!)
+                                  // humOscA: 55Hz, humOscB: 56.5Hz, humSubOsc: 27.5Hz - already set in init()
+
+                                  // 3. Filter opens quickly: 200Hz -> 600Hz (not 800, keep it tighter)
                                   this.humFilter.frequency.cancelScheduledValues(now);
                                   this.humFilter.frequency.setValueAtTime(200, now);
-                                  this.humFilter.frequency.exponentialRampToValueAtTime(800, now + 0.35);
+                                  this.humFilter.frequency.exponentialRampToValueAtTime(600, now + 0.15);
 
-                                  // Master volume ramp up (prevents clicking)
+                                  // 4. Master volume ramp up (prevents clicking)
                                   this.humGain.gain.cancelScheduledValues(now);
                                   this.humGain.gain.setValueAtTime(0.0, now);
-                                  this.humGain.gain.linearRampToValueAtTime(0.35, now + 0.3);
+                                  this.humGain.gain.linearRampToValueAtTime(0.35, now + 0.15);
 
-                                  // Noise layer volume up slightly
+                                  // 5. Noise layer slight boost
                                   this.noiseGain.gain.cancelScheduledValues(now);
                                   this.noiseGain.gain.setValueAtTime(0.02, now);
-                                  this.noiseGain.gain.linearRampToValueAtTime(0.05, now + 0.3);
+                                  this.noiseGain.gain.linearRampToValueAtTime(0.04, now + 0.15);
                                 },
 
-                                // Call when sound is deactivated (retraction)
+                                // Call when sound is deactivated (retraction) - filter close + volume down
                                 deactivate() {
                                   if (!this.isActive || !audioCtx) return;
                                   this.isActive = false;
                                   const now = audioCtx.currentTime;
 
-                                  // Retraction pitch sweep: fall down
-                                  [this.humOscA, this.humOscB, this.humSubOsc].forEach((osc) => {
-                                    if (!osc) return;
-                                    const currentFreq = osc.frequency.value;
-                                    osc.frequency.cancelScheduledValues(now);
-                                    osc.frequency.setValueAtTime(currentFreq, now);
-                                    osc.frequency.exponentialRampToValueAtTime(currentFreq * 0.3, now + 0.3);
-                                  });
+                                  // OSCs stay FIXED at base frequencies (NO pitch sweep down!)
 
-                                  // Filter closes (to 150Hz - very dark)
+                                  // Filter closes: to 150Hz (very dark)
                                   this.humFilter.frequency.cancelScheduledValues(now);
                                   this.humFilter.frequency.setValueAtTime(this.humFilter.frequency.value, now);
                                   this.humFilter.frequency.exponentialRampToValueAtTime(150, now + 0.3);
@@ -507,22 +523,18 @@
                                   const intensityVol = intensity * 0.28;
                                   const targetHumVol = baseHumVol + intensityVol;
         
-                                  // Smooth volume using setTargetAtTime (slower for stability)
+                                  // Smooth volume using setTargetAtTime
                                   this.humGain.gain.setTargetAtTime(targetHumVol, now, 0.05);
 
-                                  // Pitch modulation with intensity (all track together)
-                                  const pitchShift = intensity * 30;  // Subtle pitch rise with speed
-                                  this.humOscA.frequency.setTargetAtTime(this.baseFreq + pitchShift, now, 0.05);
-                                  this.humOscB.frequency.setTargetAtTime(56.5 + pitchShift * 1.027, now, 0.05);  // Keep detune ratio
-                                  this.humSubOsc.frequency.setTargetAtTime(this.baseFreq * 0.5 + pitchShift * 0.5, now, 0.05);
+                                  // OSCILLATOR FREQUENCIES STAY FIXED (55Hz, 56.5Hz, 27.5Hz) - NO PITCH BENDING!
+                                  // Only the FILTER opens/closes with movement
 
                                   // Filter opens up with intensity - CAP at ~2000Hz (vocal range, no firecracker highs)
                                   // Slower smoothing (0.08) prevents abrupt high-frequency spikes from sensor jitter
                                   this.humFilter.frequency.setTargetAtTime(300 + intensity * 1700, now, 0.08);  // Max 2000Hz
-                                  // Q stays high (12) for the vocal scream character
+                                  // Q stays at 10 for vocal/tube scream character
 
-                                  // Noise layer: LOWPASS (not bandpass) capped at 1000Hz, very subtle gain
-                                  // This removes the "hiss/sizzle" that causes firecracker sound
+                                  // Noise layer: LOWPASS capped at 1000Hz, very subtle gain
                                   this.noiseFilter.frequency.setTargetAtTime(600 + intensity * 400, now, 0.08);  // Max 1000Hz
                                   this.noiseGain.gain.setTargetAtTime(0.015 + intensity * 0.04, now, 0.08);    // Max 0.055 (much quieter)
 
