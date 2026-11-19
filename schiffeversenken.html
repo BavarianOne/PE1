@@ -121,6 +121,58 @@
     .placement-controls { display: flex; flex-wrap: wrap; gap: var(--space-3); justify-content: center; margin-top: var(--space-4); }
     .rotate-btn { min-width: 120px; }
 
+    /* Floating rotate button - always visible during placement */
+    .board-wrapper { position: relative; }
+    .rotate-btn-floating {
+      position: absolute;
+      bottom: calc(100% + var(--space-3));
+      left: 50%;
+      transform: translateX(-50%);
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-2) var(--space-4);
+      background: var(--color-accent);
+      color: white;
+      border: none;
+      border-radius: var(--radius-pill);
+      font-weight: 600;
+      font-size: var(--text-body-sm);
+      box-shadow: 0 4px 16px rgba(0,153,255,0.4), 0 0 0 1px var(--color-accent-glow);
+      white-space: nowrap;
+      z-index: 20;
+      transition: all var(--duration-fast) var(--ease-out);
+      min-height: var(--touch-target-lg);
+    }
+    .rotate-btn-floating:hover:not(:disabled) { 
+      background: var(--color-accent-hover); 
+      box-shadow: 0 6px 20px rgba(0,153,255,0.5), 0 0 0 1px var(--color-accent-glow);
+      transform: translateX(-50%) translateY(-2px);
+    }
+    .rotate-btn-floating:active:not(:disabled) { 
+      background: var(--color-accent-pressed); 
+      transform: translateX(-50%) scale(0.98);
+    }
+    .rotate-btn-floating kbd {
+      background: rgba(255,255,255,0.2);
+      padding: 1px 6px;
+      border-radius: var(--radius-sm);
+      font-size: 0.75em;
+      font-family: var(--font-mono);
+    }
+    .rotate-btn-floating:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px var(--color-accent-ring), 0 4px 16px rgba(0,153,255,0.4);
+    }
+    @media (max-width: 480px) {
+      .rotate-btn-floating {
+        padding: var(--space-2) var(--space-3);
+        font-size: var(--text-caption);
+        gap: var(--space-1);
+      }
+      .rotate-btn-floating span { display: none; }
+    }
+
     /* Turn Indicator */
     .turn-indicator { display: flex; align-items: center; justify-content: center; gap: var(--space-3); padding: var(--space-3) var(--space-5); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-pill); margin: 0 auto var(--space-4); max-width: 320px; font-size: var(--text-body-sm); font-weight: 600; }
     .turn-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--color-border); transition: all var(--duration-normal); }
@@ -319,6 +371,11 @@
           <div class="board-wrapper">
             <div class="board-label current" id="myBoardLabel">Dein Brett</div>
             <div class="board small" id="myBoard" role="grid" aria-label="Deine Schiffe"></div>
+            <button class="btn btn-primary rotate-btn-floating haptic-tap" id="rotateBtn" type="button" aria-label="Schiff drehen">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              <span>Drehen</span>
+              <kbd>R</kbd>
+            </button>
           </div>
         </div>
 

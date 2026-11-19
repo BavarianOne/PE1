@@ -385,9 +385,18 @@
   function handleDragOver(e) {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
+    updateDragPreview(e.clientX, e.clientY);
+  }
 
-    const cell = e.target.closest('.cell');
-    if (!cell || cell.dataset.board !== 'myBoard') {
+  function handleDragMove(e) {
+    if (!state.placement.draggedShipLen) return;
+    updateDragPreview(e.clientX, e.clientY);
+  }
+
+  function updateDragPreview(clientX, clientY) {
+    const boardRect = els.myBoard.getBoundingClientRect();
+    if (clientX < boardRect.left || clientX > boardRect.right ||
+        clientY < boardRect.top || clientY > boardRect.bottom) {
       clearPreview();
       state.placement.validDropTarget = null;
       return;
@@ -395,25 +404,38 @@
 
     if (!state.placement.draggedShipLen) return;
 
-    const { r, c } = coordsFromCell(cell);
-    const board = state.players[state.currentPlayer - 1].board;
-    const ignoreIndex = state.placement.placedShips.findIndex(s => s.index === state.placement.draggedShipIndex);
+    // Account for 2px gap between cells
+    const cellSize = (boardRect.width - (state.size - 1) * 2) / state.size;
+    const relX = clientX - boardRect.left;
+    const relY = clientY - boardRect.top;
+    const c = Math.floor(relX / (cellSize + 2));
+    const r = Math.floor(relY / (cellSize + 2));
 
-    const valid = canPlaceShip(board, state.placement.draggedShipLen, r, c, state.placement.orientation, ignoreIndex);
-    if (!valid) {
-      const error = getPlacementError(board, state.placement.draggedShipLen, r, c, state.placement.orientation, ignoreIndex);
-      updatePlacementStatus(error || 'Ungültige Position');
+    if (r >= 0 && r < state.size && c >= 0 && c < state.size) {
+      const board = state.players[state.currentPlayer - 1].board;
+      const ignoreIndex = state.placement.placedShips.findIndex(s => s.index === state.placement.draggedShipIndex);
+      const valid = canPlaceShip(board, state.placement.draggedShipLen, r, c, state.placement.orientation, ignoreIndex);
+      if (!valid) {
+        const error = getPlacementError(board, state.placement.draggedShipLen, r, c, state.placement.orientation, ignoreIndex);
+        updatePlacementStatus(error || 'Ungültige Position');
+      }
+
+      state.placement.previewCells = [];
+      for (let i = 0; i < state.placement.draggedShipLen; i++) {
+        const dr = state.placement.orientation === 'horizontal' ? 0 : 1;
+        const dc = state.placement.orientation === 'horizontal' ? 1 : 0;
+        const nr = r + dr * i;
+        const nc = c + dc * i;
+        if (nr < state.size && nc < state.size) {
+          state.placement.previewCells.push({ r: nr, c: nc });
+        }
+      }
+      showPreview(valid);
+      state.placement.validDropTarget = valid ? { r, c } : null;
+    } else {
+      clearPreview();
+      state.placement.validDropTarget = null;
     }
-
-    state.placement.previewCells = [];
-    for (let i = 0; i < state.placement.draggedShipLen; i++) {
-      const dr = state.placement.orientation === 'horizontal' ? 0 : 1;
-      const dc = state.placement.orientation === 'horizontal' ? 1 : 0;
-      state.placement.previewCells.push({ r: r + dr * i, c: c + dc * i });
-    }
-
-    showPreview(valid);
-    state.placement.validDropTarget = valid ? { r, c } : null;
   }
 
   function handleDrop(e) {
@@ -534,8 +556,6 @@
     e.preventDefault();
 
     const touch = e.touches[0];
-    touchGhost.style.left = (touch.clientX - touchGhost.offsetWidth/2) + 'px';
-    touchGhost.style.top = (touch.clientY - touchGhost.offsetHeight/2) + 'px';
 
     const boardRect = els.myBoard.getBoundingClientRect();
     if (touch.clientX >= boardRect.left && touch.clientX <= boardRect.right &&
@@ -568,13 +588,25 @@
         }
         showPreview(valid);
         state.placement.validDropTarget = valid ? { r, c } : null;
+
+        // Update ghost position to show grid-aligned ship position (not finger position)
+        const ghostX = boardRect.left + c * (cellSize + 2);
+        const ghostY = boardRect.top + r * (cellSize + 2);
+        touchGhost.style.left = ghostX + 'px';
+        touchGhost.style.top = ghostY + 'px';
       } else {
         clearPreview();
         state.placement.validDropTarget = null;
+        // Keep ghost at finger when off-grid
+        touchGhost.style.left = (touch.clientX - touchGhost.offsetWidth/2) + 'px';
+        touchGhost.style.top = (touch.clientY - touchGhost.offsetHeight/2) + 'px';
       }
     } else {
       clearPreview();
       state.placement.validDropTarget = null;
+      // Keep ghost at finger when off-board
+      touchGhost.style.left = (touch.clientX - touchGhost.offsetWidth/2) + 'px';
+      touchGhost.style.top = (touch.clientY - touchGhost.offsetHeight/2) + 'px';
     }
   }
 
@@ -956,6 +988,10 @@
     els.myBoard.addEventListener('dragover', handleDragOver);
     els.myBoard.addEventListener('drop', handleDrop);
     els.myBoard.addEventListener('dragleave', handleDragLeave);
+
+    // Continuous preview during drag (desktop)
+    els.myBoard.addEventListener('mousemove', handleDragMove);
+    els.myBoard.addEventListener('mouseleave', handleDragLeave);
 
     // Touch drag & drop
     els.fleetList.addEventListener('touchstart', handleTouchStart, { passive: false });
