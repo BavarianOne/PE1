@@ -231,28 +231,45 @@
 
   function renderFleet() {
     const { ships, confirmed } = state.placement;
-    const currentShipLen = ships[state.placement.shipIndex];
+    const currentShipIndex = state.placement.shipIndex;
     els.fleetList.innerHTML = '';
 
+    const shipNames = ['Träger', 'Schlachtschiff', 'Kreuzer', 'Zerstörer', 'U-Boot', 'Patrouillenboot'];
+    
     ships.forEach((len, i) => {
       const shipEl = document.createElement('div');
-      shipEl.className = 'fleet-ship';
+      let statusClass = '';
+      let statusText = 'WARTET';
       if (i < confirmed.length) {
-        shipEl.classList.add('placed');
-      } else if (i === state.placement.shipIndex) {
-        shipEl.classList.add('current');
+        statusClass = 'placed';
+        statusText = 'PLATZIERT';
+      } else if (i === currentShipIndex) {
+        statusClass = 'current';
+        statusText = 'AKTIV';
       }
+      shipEl.className = `fleet-ship ${statusClass}`;
 
-      const cellsHtml = Array.from({ length: len }, (_, idx) =>
-        `<span class="ship-cell${idx < len ? ' filled' : ''}"></span>`
+      const segmentsHtml = Array.from({ length: len }, (_, idx) =>
+        `<span class="ship-segment${idx < len ? ' filled' : ''}">${idx + 1}</span>`
       ).join('');
 
+      const name = shipNames[i] || `Schiff ${i + 1}`;
+      
       shipEl.innerHTML = `
-        <span class="ship-cells">${cellsHtml}</span>
-        <span>${len}</span>
+        <div class="ship-visual">${segmentsHtml}</div>
+        <div class="ship-info">
+          <span class="ship-name">${name}</span>
+          <span class="ship-length">Länge: ${len}</span>
+          <span class="ship-status">${statusText}</span>
+        </div>
       `;
       els.fleetList.appendChild(shipEl);
     });
+
+    // Update fleet title with count
+    const placedCount = confirmed.length;
+    const totalCount = ships.length;
+    els.fleetPanel.querySelector('.fleet-title').innerHTML = `Flotte <span class="ship-count">${placedCount}/${totalCount} platziert</span>`;
   }
 
   function updatePlacementPreview() {
@@ -323,46 +340,64 @@
   function handlePlacementCellClick(cell) {
     if (state.phase !== 'placement') return;
     const { r, c } = coordsFromCell(cell);
-    const { shipIndex, cells, orientation, confirmed } = state.placement;
-    const shipLen = state.ships[shipIndex];
+    const shipLen = state.ships[state.placement.shipIndex];
 
-    // If we already have cells, check if clicking same cell to cancel
-    if (cells.length > 0) {
-      const first = cells[0];
+    // If we already have a preview, check if clicking same cell to cancel
+    if (state.placement.cells.length > 0) {
+      const first = state.placement.cells[0];
       if (first.r === r && first.c === c) {
         // Cancel placement
         state.placement.cells = [];
         state.placement.orientation = 'horizontal';
         updatePlacementPreview();
-        els.placementStatus.textContent = 'Tippe ein Feld, dann drehen & bestätigen';
+        updatePlacementStatus();
         return;
       }
     }
 
     // Try to place starting from this cell
-    if (canPlaceShip(state.players[state.currentPlayer - 1].board, shipLen, r, c, orientation)) {
+    const board = state.players[state.currentPlayer - 1].board;
+    if (canPlaceShip(board, shipLen, r, c, state.placement.orientation)) {
       state.placement.cells = [];
       for (let i = 0; i < shipLen; i++) {
-        const dr = orientation === 'horizontal' ? 0 : 1;
-        const dc = orientation === 'horizontal' ? 1 : 0;
+        const dr = state.placement.orientation === 'horizontal' ? 0 : 1;
+        const dc = state.placement.orientation === 'horizontal' ? 1 : 0;
         state.placement.cells.push({ r: r + dr * i, c: c + dc * i });
       }
       updatePlacementPreview();
-      els.placementStatus.textContent = `Schiff (${shipLen}) platziert — Drehen oder Bestätigen`;
+      updatePlacementStatus();
     } else {
-      els.placementStatus.textContent = 'Hier passt das Schiff nicht';
+      updatePlacementStatus('Hier passt das Schiff nicht (Rand oder zu nah an anderes Schiff)');
       haptic();
+    }
+  }
+
+  function updatePlacementStatus(msg) {
+    const shipLen = state.ships[state.placement.shipIndex];
+    const shipNum = state.placement.shipIndex + 1;
+    const total = state.ships.length;
+    const orientation = state.placement.orientation === 'horizontal' ? 'waagerecht' : 'senkrecht';
+    
+    if (msg) {
+      els.placementStatus.textContent = msg;
+      return;
+    }
+    
+    if (state.placement.cells.length === 0) {
+      els.placementStatus.textContent = `Schiff ${shipNum}/${total} (Länge ${shipLen}) — Tippe Startfeld, aktuell: ${orientation}`;
+    } else {
+      els.placementStatus.textContent = `Schiff ${shipNum}/${total} platziert (${orientation}) — Drehen (R) oder Bestätigen`;
     }
   }
 
   function rotateShip() {
     if (state.phase !== 'placement' || state.placement.cells.length === 0) return;
-    const { cells, orientation } = state.placement;
     const shipLen = state.ships[state.placement.shipIndex];
-    const newOrientation = orientation === 'horizontal' ? 'vertical' : 'horizontal';
-    const start = cells[0];
+    const newOrientation = state.placement.orientation === 'horizontal' ? 'vertical' : 'horizontal';
+    const start = state.placement.cells[0];
+    const board = state.players[state.currentPlayer - 1].board;
 
-    if (canPlaceShip(state.players[state.currentPlayer - 1].board, shipLen, start.r, start.c, newOrientation)) {
+    if (canPlaceShip(board, shipLen, start.r, start.c, newOrientation)) {
       state.placement.orientation = newOrientation;
       state.placement.cells = [];
       for (let i = 0; i < shipLen; i++) {
@@ -371,34 +406,39 @@
         state.placement.cells.push({ r: start.r + dr * i, c: start.c + dc * i });
       }
       updatePlacementPreview();
+      updatePlacementStatus();
       haptic();
     } else {
+      updatePlacementStatus('Drehen nicht möglich — Schiff würde ausserhalb stehen');
       haptic();
     }
   }
 
   function confirmPlacement() {
     if (state.phase !== 'placement') return;
-    const { shipIndex, cells, confirmed } = state.placement;
-    const shipLen = state.ships[shipIndex];
+    const shipLen = state.ships[state.placement.shipIndex];
 
-    if (cells.length !== shipLen) return;
+    if (state.placement.cells.length !== shipLen) return;
 
     const player = state.players[state.currentPlayer - 1];
-    const ship = placeShip(player.board, shipLen, cells[0].r, cells[0].c, state.placement.orientation, shipIndex);
+    const start = state.placement.cells[0];
+    const ship = placeShip(player.board, shipLen, start.r, start.c, state.placement.orientation, state.placement.shipIndex);
     player.ships.push(ship);
-    state.placement.confirmed.push(shipIndex);
+    state.placement.confirmed.push(state.placement.shipIndex);
     state.placement.cells = [];
     state.placement.orientation = 'horizontal';
+
+    // Re-render board with confirmed ships
+    renderBoard(els.myBoard, player.board, true, player.ships);
+    renderFleet();
 
     // Check if all ships placed
     if (state.placement.confirmed.length === state.ships.length) {
       finishPlacement();
     } else {
       state.placement.shipIndex++;
-      renderFleet();
+      updatePlacementStatus();
       updatePlacementPreview();
-      els.placementStatus.textContent = `Schiff ${state.placement.shipIndex + 1}/${state.ships.length} platzieren`;
     }
   }
 
@@ -433,7 +473,7 @@
       renderBoard(els.myBoard, state.players[nextPlayer - 1].board, true, state.players[nextPlayer - 1].ships);
       renderFleet();
       updatePlacementPreview();
-      els.placementStatus.textContent = 'Tippe ein Feld, dann drehen & bestätigen';
+      updatePlacementStatus();
     };
     show(els.switchModal);
   }
@@ -740,7 +780,7 @@
     renderBoard(els.myBoard, state.players[0].board, true, []);
     renderFleet();
     updatePlacementPreview();
-    els.placementStatus.textContent = 'Tippe ein Feld, dann drehen & bestätigen';
+    updatePlacementStatus();
     haptic();
   }
 
@@ -780,7 +820,7 @@
       renderFleet();
       updatePlacementPreview();
       els.placementText.textContent = 'Spieler 1: Schiffe platzieren';
-      els.placementStatus.textContent = 'Tippe ein Feld, dann drehen & bestätigen';
+      updatePlacementStatus();
     }
     haptic();
   }

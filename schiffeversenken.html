@@ -68,22 +68,54 @@
     .cell.sunk::after { content: '💀'; font-size: 1.2em; }
 
     /* Ship preview during placement */
-    .cell.preview { background: var(--color-accent-soft); border: 2px dashed var(--color-accent); }
-    .cell.preview.invalid { background: rgba(239,68,68,0.2); border-color: var(--color-error); }
+    .cell.preview { 
+      background: var(--color-accent-soft); 
+      border: 2px dashed var(--color-accent);
+      box-shadow: inset 0 0 0 1px var(--color-accent), 0 0 8px var(--color-accent-glow);
+      z-index: 10;
+    }
+    .cell.preview.invalid { 
+      background: rgba(239,68,68,0.2); 
+      border-color: var(--color-error);
+      box-shadow: inset 0 0 0 1px var(--color-error), 0 0 8px rgba(239,68,68,0.3);
+    }
+    
+    /* Orientation indicator on preview */
+    .cell.preview:first-child::before {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      right: 2px;
+      bottom: 2px;
+      border: 1px solid var(--color-accent);
+      border-radius: 2px;
+      pointer-events: none;
+    }
 
     /* Ship Legend */
     .fleet-panel { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-4); box-shadow: var(--shadow-card); }
-    .fleet-title { font-size: var(--text-body-sm); font-weight: 700; color: var(--color-text); margin-bottom: var(--space-3); text-transform: uppercase; letter-spacing: var(--tracking-wide); }
-    .fleet-list { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: center; }
-    .fleet-ship { display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); background: var(--color-surface-hover); border: 1px solid var(--color-border); border-radius: var(--radius-pill-sm); font-size: var(--text-caption); font-family: var(--font-mono); color: var(--color-text-muted); transition: all var(--duration-fast); }
+    .fleet-title { font-size: var(--text-body-sm); font-weight: 700; color: var(--color-text); margin-bottom: var(--space-3); text-transform: uppercase; letter-spacing: var(--tracking-wide); display: flex; align-items: center; gap: var(--space-2); }
+    .fleet-title .ship-count { font-size: var(--text-caption); color: var(--color-text-muted); font-weight: 400; }
+    .fleet-list { display: flex; flex-direction: column; gap: var(--space-2); }
+    .fleet-ship { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); background: var(--color-surface-hover); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--text-body-sm); font-family: var(--font-mono); color: var(--color-text-muted); transition: all var(--duration-fast); min-height: 56px; }
     .fleet-ship.placed { background: rgba(34,197,94,0.1); border-color: var(--color-success); color: var(--color-success); }
     .fleet-ship.sunk { background: rgba(239,68,68,0.1); border-color: var(--color-error); color: var(--color-error); text-decoration: line-through; }
-    .fleet-ship.current { background: var(--color-accent-soft); border-color: var(--color-accent); color: var(--color-accent); animation: pulse 1s infinite; }
-    .fleet-ship .ship-cells { display: flex; gap: 2px; }
-    .fleet-ship .ship-cell { width: 12px; height: 12px; background: var(--color-border); border-radius: 2px; }
-    .fleet-ship .ship-cell.filled { background: #374151; }
-    .fleet-ship.placed .ship-cell.filled { background: var(--color-success); }
-    .fleet-ship.sunk .ship-cell.filled { background: var(--color-error); }
+    .fleet-ship.current { background: var(--color-accent-soft); border-color: var(--color-accent); color: var(--color-accent); box-shadow: 0 0 0 1px var(--color-accent-glow), var(--shadow-card); animation: pulse 1.5s infinite; }
+    .fleet-ship .ship-visual { display: flex; gap: 3px; flex-shrink: 0; }
+    .fleet-ship .ship-segment { width: 28px; height: 28px; background: var(--color-border); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: var(--text-caption); font-weight: 700; color: var(--color-text-subtle); border: 2px solid transparent; }
+    .fleet-ship .ship-segment.filled { background: #374151; color: var(--color-text); border-color: #4b5563; }
+    .fleet-ship.placed .ship-segment.filled { background: var(--color-success); color: white; border-color: #16a34a; }
+    .fleet-ship.sunk .ship-segment.filled { background: var(--color-error); color: white; border-color: #dc2626; }
+    .fleet-ship.current .ship-segment.filled { background: var(--color-accent-soft); color: var(--color-accent); border-color: var(--color-accent); }
+    .fleet-ship .ship-info { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .fleet-ship .ship-name { font-weight: 600; font-family: var(--font-sans); font-size: var(--text-body-sm); }
+    .fleet-ship .ship-length { font-size: var(--text-caption); color: var(--color-text-muted); }
+    .fleet-ship.current .ship-length { color: var(--color-accent); }
+    .fleet-ship .ship-status { font-size: var(--text-caption); font-weight: 600; text-transform: uppercase; letter-spacing: var(--tracking-wide); }
+    .fleet-ship.placed .ship-status { color: var(--color-success); }
+    .fleet-ship.current .ship-status { color: var(--color-accent); animation: blink 1s infinite; }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 
     /* Controls */
     .placement-controls { display: flex; flex-wrap: wrap; gap: var(--space-3); justify-content: center; margin-top: var(--space-4); }
@@ -120,11 +152,16 @@
     .stat { display: flex; align-items: center; gap: var(--space-1); }
     .stat-value { font-weight: 700; color: var(--color-text); }
 
+    /* Placement Help */
+    .placement-help { font-size: var(--text-caption); color: var(--color-text-subtle); text-align: center; margin-top: var(--space-2); padding: var(--space-2); background: var(--color-surface-hover); border-radius: var(--radius-md); line-height: 1.6; }
+    .placement-help kbd { background: var(--color-surface); border: 1px solid var(--color-border); padding: 1px 6px; border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 0.85em; }
+
     /* Responsive Board Sizing */
     @media (max-width: 480px) {
       .board.small { grid-template-columns: repeat(6, minmax(0, 36px)); grid-template-rows: repeat(6, minmax(0, 36px)); }
       .board.medium { grid-template-columns: repeat(8, minmax(0, 28px)); grid-template-rows: repeat(8, minmax(0, 28px)); }
       .board.large { grid-template-columns: repeat(10, minmax(0, 24px)); grid-template-rows: repeat(10, minmax(0, 24px)); }
+      .fleet-ship .ship-segment { width: 22px; height: 22px; font-size: 10px; }
     }
     @media (min-width: 481px) and (max-width: 768px) {
       .board.small { grid-template-columns: repeat(6, minmax(0, 44px)); grid-template-rows: repeat(6, minmax(0, 44px)); }
@@ -288,6 +325,10 @@
         <div class="fleet-panel" id="fleetPanel" aria-label="Flotte">
           <div class="fleet-title">Flotte</div>
           <div class="fleet-list" id="fleetList"></div>
+        </div>
+
+        <div class="placement-help" id="placementHelp">
+          <strong>So geht's:</strong> Tippe ein Startfeld → Schiff erscheint als Vorschau → <kbd>R</kbd> oder „Drehen“ für Ausrichtung → „Bestätigen“. Schiffe dürfen sich nicht berühren.
         </div>
 
         <div class="placement-controls">
