@@ -2,6 +2,7 @@
  * Schiffe Versenken — PE1
  * 2-Spieler (Pass & Play) oder gegen KI
  * Touch-first, Offline-fähig, Framer Design System
+ * Drag & Drop Ship Placement
  */
 
 (function() {
@@ -9,9 +10,9 @@
 
   // ===== CONFIG =====
   const BOARD_SIZES = {
-    small:  { size: 6, ships: [3, 2, 2], name: '6×6' },
-    medium: { size: 8, ships: [4, 3, 3, 2, 2], name: '8×8' },
-    large:  { size: 10, ships: [5, 4, 3, 3, 2], name: '10×10' }
+    small:  { size: 6, ships: [3, 2, 2], names: ['Kreuzer', 'Zerstörer', 'U-Boot'] },
+    medium: { size: 8, ships: [4, 3, 3, 2, 2], names: ['Schlachtschiff', 'Kreuzer', 'Zerstörer', 'U-Boot', 'Patrouillenboot'] },
+    large:  { size: 10, ships: [5, 4, 3, 3, 2], names: ['Träger', 'Schlachtschiff', 'Kreuzer', 'Zerstörer', 'U-Boot'] }
   };
 
   const CELL_STATES = {
@@ -24,23 +25,27 @@
 
   // ===== STATE =====
   let state = {
-    mode: null,           // 'pvp' | 'ai'
-    boardSize: null,      // 'small' | 'medium' | 'large'
+    mode: null,
+    boardSize: null,
     size: 6,
     ships: [],
-    phase: 'mode',        // 'mode' | 'size' | 'placement' | 'game' | 'ended'
-    currentPlayer: 1,     // 1 or 2
+    shipNames: [],
+    phase: 'mode',
+    currentPlayer: 1,
     players: [
       { board: [], ships: [], hits: 0, misses: 0, sunk: 0 },
       { board: [], ships: [], hits: 0, misses: 0, sunk: 0 }
     ],
     placement: {
-      shipIndex: 0,
-      cells: [],
-      orientation: 'horizontal', // 'horizontal' | 'vertical'
-      confirmed: []
+      draggedShipIndex: null,
+      draggedShipLen: null,
+      draggedShipName: null,
+      orientation: 'horizontal',
+      validDropTarget: null,
+      previewCells: [],
+      placedShips: []
     },
-    aiDifficulty: 'medium', // 'easy' | 'medium' | 'hard'
+    aiDifficulty: 'medium',
     aiLastHits: [],
     aiHuntMode: false,
     gameOver: false,
@@ -49,25 +54,22 @@
 
   // ===== DOM ELEMENTS =====
   const els = {
-    // Sections
     modeSelection: document.getElementById('modeSelection'),
     sizeSelection: document.getElementById('sizeSelection'),
     placementPhase: document.getElementById('placementPhase'),
     gamePhase: document.getElementById('gamePhase'),
 
-    // Mode
     modePvP: document.getElementById('modePvP'),
     modeAI: document.getElementById('modeAI'),
     modeBadge: document.getElementById('modeBadge'),
 
-    // Size
     sizeOptions: document.querySelectorAll('.size-option'),
     sizeStatus: document.getElementById('sizeStatus'),
 
-    // Placement
     myBoard: document.getElementById('myBoard'),
     myBoardLabel: document.getElementById('myBoardLabel'),
     fleetList: document.getElementById('fleetList'),
+    fleetPanel: document.getElementById('fleetPanel'),
     placementIndicator: document.getElementById('placementIndicator'),
     placementDot: document.getElementById('placementDot'),
     placementText: document.getElementById('placementText'),
@@ -75,7 +77,6 @@
     rotateBtn: document.getElementById('rotateBtn'),
     confirmPlacementBtn: document.getElementById('confirmPlacementBtn'),
 
-    // Game
     myBoardGame: document.getElementById('myBoardGame'),
     opponentBoard: document.getElementById('opponentBoard'),
     myBoardLabel2: document.getElementById('myBoardLabel2'),
@@ -91,7 +92,6 @@
     missesStat: document.getElementById('missesStat'),
     sunkStat: document.getElementById('sunkStat'),
 
-    // Modals
     resultModal: document.getElementById('resultModal'),
     resultIcon: document.getElementById('resultIcon'),
     resultTitle: document.getElementById('resultTitle'),
@@ -103,7 +103,6 @@
     switchMessage: document.getElementById('switchMessage'),
     continueBtn: document.getElementById('continueBtn'),
 
-    // Global
     gameStatus: document.getElementById('gameStatus')
   };
 
@@ -115,8 +114,10 @@
   function hide(el) { el.classList.add('hidden'); }
   function toggle(el, force) { el.classList.toggle('hidden', force); }
 
-  function haptic() {
-    if (navigator.vibrate) navigator.vibrate(10);
+  function haptic(type = 'light') {
+    if (navigator.vibrate) {
+      navigator.vibrate(type === 'heavy' ? [10, 30, 10] : 10);
+    }
   }
 
   function createCell(r, c, boardType) {
@@ -144,26 +145,37 @@
     return Array.from({ length: size }, () => Array(size).fill(CELL_STATES.EMPTY));
   }
 
-  function canPlaceShip(board, shipLen, r, c, orientation) {
+  function canPlaceShip(board, shipLen, r, c, orientation, ignoreShipIndex = -1) {
     const size = board.length;
     const dr = orientation === 'horizontal' ? 0 : 1;
     const dc = orientation === 'horizontal' ? 1 : 0;
 
-    // Check bounds
     const endR = r + dr * (shipLen - 1);
     const endC = c + dc * (shipLen - 1);
-    if (endR >= size || endC >= size) return false;
+    if (endR >= size || endC >= size || r < 0 || c < 0) return false;
 
-    // Check overlap and adjacency (no touching ships)
     for (let i = 0; i < shipLen; i++) {
       const cr = r + dr * i;
       const cc = c + dc * i;
       if (board[cr][cc] !== CELL_STATES.EMPTY) return false;
-      // Check all 8 neighbors
       for (let nr = cr - 1; nr <= cr + 1; nr++) {
         for (let nc = cc - 1; nc <= cc + 1; nc++) {
           if (nr >= 0 && nr < size && nc >= 0 && nc < size) {
-            if (board[nr][nc] === CELL_STATES.SHIP) return false;
+            if (board[nr][nc] === CELL_STATES.SHIP) {
+              let belongsToIgnored = false;
+              if (ignoreShipIndex >= 0) {
+                const ignoredShip = state.placement.placedShips[ignoreShipIndex];
+                if (ignoredShip) {
+                  for (const cell of ignoredShip.cells) {
+                    if (cell.r === nr && cell.c === nc) {
+                      belongsToIgnored = true;
+                      break;
+                    }
+                  }
+                }
+              }
+              if (!belongsToIgnored) return false;
+            }
           }
         }
       }
@@ -171,7 +183,7 @@
     return true;
   }
 
-  function placeShip(board, shipLen, r, c, orientation, shipId) {
+  function placeShip(board, shipLen, r, c, orientation) {
     const dr = orientation === 'horizontal' ? 0 : 1;
     const dc = orientation === 'horizontal' ? 1 : 0;
     const cells = [];
@@ -181,7 +193,13 @@
       board[cr][cc] = CELL_STATES.SHIP;
       cells.push({ r: cr, c: cc });
     }
-    return { id: shipId, cells, length: shipLen, hits: 0, sunk: false };
+    return cells;
+  }
+
+  function removeShip(board, cells) {
+    cells.forEach(({ r, c }) => {
+      board[r][c] = CELL_STATES.EMPTY;
+    });
   }
 
   function getShipAt(board, ships, r, c) {
@@ -230,78 +248,447 @@
   }
 
   function renderFleet() {
-    const { ships, confirmed } = state.placement;
-    const currentShipIndex = state.placement.shipIndex;
+    const { placedShips, draggedShipIndex } = state.placement;
     els.fleetList.innerHTML = '';
 
-    const shipNames = ['Träger', 'Schlachtschiff', 'Kreuzer', 'Zerstörer', 'U-Boot', 'Patrouillenboot'];
-    
-    ships.forEach((len, i) => {
+    state.ships.forEach((len, i) => {
+      const name = state.shipNames[i] || `Schiff ${i + 1}`;
+      const placed = placedShips.findIndex(s => s.index === i);
+      const isPlaced = placed >= 0;
+      const isDragged = draggedShipIndex === i;
+
       const shipEl = document.createElement('div');
-      let statusClass = '';
-      let statusText = 'WARTET';
-      if (i < confirmed.length) {
-        statusClass = 'placed';
-        statusText = 'PLATZIERT';
-      } else if (i === currentShipIndex) {
-        statusClass = 'current';
-        statusText = 'AKTIV';
+      shipEl.className = `fleet-ship ${isPlaced ? 'placed' : ''} ${isDragged ? 'dragging' : ''}`;
+      shipEl.draggable = !isPlaced;
+      shipEl.dataset.shipIndex = i;
+
+      if (!isPlaced) {
+        shipEl.addEventListener('dragstart', handleDragStart);
+        shipEl.addEventListener('dragend', handleDragEnd);
       }
-      shipEl.className = `fleet-ship ${statusClass}`;
 
       const segmentsHtml = Array.from({ length: len }, (_, idx) =>
         `<span class="ship-segment${idx < len ? ' filled' : ''}">${idx + 1}</span>`
       ).join('');
 
-      const name = shipNames[i] || `Schiff ${i + 1}`;
-      
       shipEl.innerHTML = `
         <div class="ship-visual">${segmentsHtml}</div>
         <div class="ship-info">
           <span class="ship-name">${name}</span>
           <span class="ship-length">Länge: ${len}</span>
-          <span class="ship-status">${statusText}</span>
+          <span class="ship-status">${isPlaced ? 'PLATZIERT' : (isDragged ? 'ZIEHEN…' : 'ZUM BRETT ZIEHEN')}</span>
         </div>
       `;
       els.fleetList.appendChild(shipEl);
     });
 
-    // Update fleet title with count
-    const placedCount = confirmed.length;
-    const totalCount = ships.length;
+    const placedCount = placedShips.length;
+    const totalCount = state.ships.length;
     els.fleetPanel.querySelector('.fleet-title').innerHTML = `Flotte <span class="ship-count">${placedCount}/${totalCount} platziert</span>`;
   }
 
-  function updatePlacementPreview() {
-    const { cells, orientation, shipIndex, confirmed } = state.placement;
-    const shipLen = state.ships[shipIndex];
+  // ===== DRAG & DROP =====
+  function handleDragStart(e) {
+    const shipIndex = +e.target.closest('.fleet-ship').dataset.shipIndex;
+    const len = state.ships[shipIndex];
+    const name = state.shipNames[shipIndex];
+
+    state.placement.draggedShipIndex = shipIndex;
+    state.placement.draggedShipLen = len;
+    state.placement.draggedShipName = name;
+    state.placement.orientation = 'horizontal';
+    state.placement.previewCells = [];
+    state.placement.validDropTarget = null;
+
+    e.target.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', shipIndex.toString());
+
+    const ghost = createDragGhost(len, name);
+    document.body.appendChild(ghost);
+    e.dataTransfer.setDragImage(ghost, ghost.offsetWidth / 2, ghost.offsetHeight / 2);
+    setTimeout(() => document.body.removeChild(ghost), 0);
+
+    haptic('heavy');
+    updatePlacementStatus(`Ziehe ${name} (Länge ${len}) aufs Brett — <kbd>R</kbd> zum Drehen`);
+    renderFleet();
+  }
+
+  function createDragGhost(len, name) {
+    const ghost = document.createElement('div');
+    ghost.style.cssText = 'position:absolute;pointer-events:none;z-index:9999;opacity:0.9;';
+    ghost.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:4px;padding:8px 12px;background:var(--color-accent);border-radius:var(--radius-lg);box-shadow:var(--shadow-float);">
+        <div style="font-weight:700;font-size:12px;color:white;">${name}</div>
+        <div style="display:flex;gap:2px;">${Array.from({length:len},()=>'<div style="width:24px;height:24px;background:white;border-radius:4px;"></div>').join('')}</div>
+      </div>
+    `;
+    return ghost;
+  }
+
+  function handleDragEnd(e) {
+    e.target.classList.remove('dragging');
+    state.placement.draggedShipIndex = null;
+    state.placement.draggedShipLen = null;
+    state.placement.draggedShipName = null;
+    state.placement.previewCells = [];
+    state.placement.validDropTarget = null;
+    clearPreview();
+    renderFleet();
+    updatePlacementStatus();
+  }
+
+  function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    const cell = e.target.closest('.cell');
+    if (!cell || cell.dataset.board !== 'myBoard') {
+      clearPreview();
+      state.placement.validDropTarget = null;
+      return;
+    }
+
+    if (!state.placement.draggedShipLen) return;
+
+    const { r, c } = coordsFromCell(cell);
+    const board = state.players[state.currentPlayer - 1].board;
+    const ignoreIndex = state.placement.placedShips.findIndex(s => s.index === state.placement.draggedShipIndex);
+
+    const valid = canPlaceShip(board, state.placement.draggedShipLen, r, c, state.placement.orientation, ignoreIndex);
+
+    state.placement.previewCells = [];
+    for (let i = 0; i < state.placement.draggedShipLen; i++) {
+      const dr = state.placement.orientation === 'horizontal' ? 0 : 1;
+      const dc = state.placement.orientation === 'horizontal' ? 1 : 0;
+      state.placement.previewCells.push({ r: r + dr * i, c: c + dc * i });
+    }
+
+    showPreview(valid);
+    state.placement.validDropTarget = valid ? { r, c } : null;
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+
+    if (!state.placement.validDropTarget || !state.placement.draggedShipLen) {
+      clearPreview();
+      return;
+    }
+
+    const { r, c } = state.placement.validDropTarget;
+    const shipIndex = state.placement.draggedShipIndex;
+    const len = state.placement.draggedShipLen;
+    const name = state.placement.draggedShipName;
+    const orientation = state.placement.orientation;
     const board = state.players[state.currentPlayer - 1].board;
 
-    // Clear previous preview
-    $$('.cell.preview', els.myBoard).forEach(c => c.classList.remove('preview', 'invalid'));
+    const cells = placeShip(board, len, r, c, orientation);
+    state.placement.placedShips.push({ index: shipIndex, len, name, r, c, orientation, cells });
 
-    if (cells.length === 0) return;
+    const player = state.players[state.currentPlayer - 1];
+    player.ships.push({ id: shipIndex, cells: [...cells], length: len, hits: 0, sunk: false });
 
-    const valid = canPlaceShip(board, shipLen, cells[0].r, cells[0].c, orientation);
-    cells.forEach(({ r, c }) => {
-      const cell = getCell(els.myBoard, r, c);
+    clearPreview();
+    renderBoard(els.myBoard, board, true, player.ships);
+    renderFleet();
+    updatePlacementStatus(`${name} platziert!`);
+    haptic();
+
+    if (state.placement.placedShips.length === state.ships.length) {
+      setTimeout(finishPlacement, 500);
+    }
+  }
+
+  function handleDragLeave(e) {
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      clearPreview();
+      state.placement.validDropTarget = null;
+    }
+  }
+
+  function showPreview(valid) {
+    clearPreview();
+    const boardEl = els.myBoard;
+    state.placement.previewCells.forEach(({ r, c }) => {
+      const cell = getCell(boardEl, r, c);
       if (cell) {
         cell.classList.add('preview');
         if (!valid) cell.classList.add('invalid');
       }
     });
+  }
 
-    els.confirmPlacementBtn.disabled = !valid || cells.length !== shipLen;
+  function clearPreview() {
+    $$('.cell.preview', els.myBoard).forEach(c => c.classList.remove('preview', 'invalid'));
+    state.placement.previewCells = [];
+  }
+
+  function rotateDraggedShip() {
+    if (!state.placement.draggedShipLen) return;
+    const newOrientation = state.placement.orientation === 'horizontal' ? 'vertical' : 'horizontal';
+    state.placement.orientation = newOrientation;
+
+    const preview = state.placement.previewCells;
+    if (preview.length > 0) {
+      const start = preview[0];
+      const board = state.players[state.currentPlayer - 1].board;
+      const ignoreIndex = state.placement.placedShips.findIndex(s => s.index === state.placement.draggedShipIndex);
+      const valid = canPlaceShip(board, state.placement.draggedShipLen, start.r, start.c, newOrientation, ignoreIndex);
+
+      state.placement.previewCells = [];
+      for (let i = 0; i < state.placement.draggedShipLen; i++) {
+        const dr = newOrientation === 'horizontal' ? 0 : 1;
+        const dc = newOrientation === 'horizontal' ? 1 : 0;
+        state.placement.previewCells.push({ r: start.r + dr * i, c: start.c + dc * i });
+      }
+      showPreview(valid);
+      state.placement.validDropTarget = valid ? start : null;
+    }
+
+    updatePlacementStatus(`Ausrichtung: ${newOrientation === 'horizontal' ? 'waagerecht' : 'senkrecht'} — Ziehe aufs Brett`);
+    haptic();
+  }
+
+  // Touch support for drag & drop on mobile
+  let touchShipIndex = null;
+  let touchGhost = null;
+
+  function handleTouchStart(e) {
+    const shipEl = e.target.closest('.fleet-ship[draggable="true"]');
+    if (!shipEl) return;
+
+    touchShipIndex = +shipEl.dataset.shipIndex;
+    const touch = e.touches[0];
+
+    touchGhost = createDragGhost(state.ships[touchShipIndex], state.shipNames[touchShipIndex]);
+    touchGhost.style.left = (touch.clientX - touchGhost.offsetWidth/2) + 'px';
+    touchGhost.style.top = (touch.clientY - touchGhost.offsetHeight/2) + 'px';
+    document.body.appendChild(touchGhost);
+
+    state.placement.draggedShipIndex = touchShipIndex;
+    state.placement.draggedShipLen = state.ships[touchShipIndex];
+    state.placement.draggedShipName = state.shipNames[touchShipIndex];
+    state.placement.orientation = 'horizontal';
+
+    shipEl.classList.add('dragging');
+    haptic('heavy');
+    updatePlacementStatus(`Ziehe ${state.placement.draggedShipName} aufs Brett — Tippe „Drehen“ für Ausrichtung`);
+    renderFleet();
+  }
+
+  function handleTouchMove(e) {
+    if (touchShipIndex === null || !touchGhost) return;
+    e.preventDefault();
+
+    const touch = e.touches[0];
+    touchGhost.style.left = (touch.clientX - touchGhost.offsetWidth/2) + 'px';
+    touchGhost.style.top = (touch.clientY - touchGhost.offsetHeight/2) + 'px';
+
+    const boardRect = els.myBoard.getBoundingClientRect();
+    if (touch.clientX >= boardRect.left && touch.clientX <= boardRect.right &&
+        touch.clientY >= boardRect.top && touch.clientY <= boardRect.bottom) {
+      const cellSize = boardRect.width / state.size;
+      const relX = touch.clientX - boardRect.left;
+      const relY = touch.clientY - boardRect.top;
+      const c = Math.floor(relX / cellSize);
+      const r = Math.floor(relY / cellSize);
+
+      if (r >= 0 && r < state.size && c >= 0 && c < state.size) {
+        const board = state.players[state.currentPlayer - 1].board;
+        const ignoreIndex = state.placement.placedShips.findIndex(s => s.index === touchShipIndex);
+        const valid = canPlaceShip(board, state.placement.draggedShipLen, r, c, state.placement.orientation, ignoreIndex);
+
+        state.placement.previewCells = [];
+        for (let i = 0; i < state.placement.draggedShipLen; i++) {
+          const dr = state.placement.orientation === 'horizontal' ? 0 : 1;
+          const dc = state.placement.orientation === 'horizontal' ? 1 : 0;
+          const nr = r + dr * i;
+          const nc = c + dc * i;
+          if (nr < state.size && nc < state.size) {
+            state.placement.previewCells.push({ r: nr, c: nc });
+          }
+        }
+        showPreview(valid);
+        state.placement.validDropTarget = valid ? { r, c } : null;
+      } else {
+        clearPreview();
+        state.placement.validDropTarget = null;
+      }
+    } else {
+      clearPreview();
+      state.placement.validDropTarget = null;
+    }
+  }
+
+  function handleTouchEnd(e) {
+    if (touchShipIndex === null) return;
+
+    if (state.placement.validDropTarget) {
+      const { r, c } = state.placement.validDropTarget;
+      const shipIndex = touchShipIndex;
+      const len = state.placement.draggedShipLen;
+      const name = state.placement.draggedShipName;
+      const orientation = state.placement.orientation;
+      const board = state.players[state.currentPlayer - 1].board;
+
+      const cells = placeShip(board, len, r, c, orientation);
+      state.placement.placedShips.push({ index: shipIndex, len, name, r, c, orientation, cells });
+
+      const player = state.players[state.currentPlayer - 1];
+      player.ships.push({ id: shipIndex, cells: [...cells], length: len, hits: 0, sunk: false });
+
+      renderBoard(els.myBoard, board, true, player.ships);
+      updatePlacementStatus(`${name} platziert!`);
+      haptic();
+
+      if (state.placement.placedShips.length === state.ships.length) {
+        setTimeout(finishPlacement, 500);
+      }
+    } else {
+      updatePlacementStatus('Ungültige Position — versuch\'s nochmal');
+      haptic('heavy');
+    }
+
+    clearPreview();
+    if (touchGhost) {
+      document.body.removeChild(touchGhost);
+      touchGhost = null;
+    }
+
+    const shipEl = els.fleetList.querySelector(`[data-ship-index="${touchShipIndex}"]`);
+    if (shipEl) shipEl.classList.remove('dragging');
+
+    touchShipIndex = null;
+    state.placement.draggedShipIndex = null;
+    state.placement.draggedShipLen = null;
+    state.placement.draggedShipName = null;
+    state.placement.validDropTarget = null;
+    renderFleet();
+  }
+
+  function removePlacedShip(shipIndex) {
+    const placedIndex = state.placement.placedShips.findIndex(s => s.index === shipIndex);
+    if (placedIndex === -1) return;
+
+    const placed = state.placement.placedShips[placedIndex];
+    const board = state.players[state.currentPlayer - 1].board;
+    removeShip(board, placed.cells);
+
+    const player = state.players[state.currentPlayer - 1];
+    const shipIdx = player.ships.findIndex(s => s.id === shipIndex);
+    if (shipIdx >= 0) player.ships.splice(shipIdx, 1);
+
+    state.placement.placedShips.splice(placedIndex, 1);
+
+    renderBoard(els.myBoard, board, true, player.ships);
+    renderFleet();
+    updatePlacementStatus(`${placed.name} entfernt — wieder zur Flotte`);
+    haptic();
+  }
+
+  // ===== PLACEMENT STATUS =====
+  function updatePlacementStatus(msg) {
+    if (msg) {
+      els.placementStatus.textContent = msg;
+      return;
+    }
+
+    const placed = state.placement.placedShips.length;
+    const total = state.ships.length;
+    const remaining = total - placed;
+
+    if (remaining === 0) {
+      els.placementStatus.textContent = 'Alle Schiffe platziert! Spiel startet…';
+    } else {
+      els.placementStatus.innerHTML = `${remaining} von ${total} Schiffe übrig — Ziehe ein Schiff aus der Flotte aufs Brett`;
+    }
+  }
+
+  // ===== GAME PHASE =====
+  function finishPlacement() {
+    const player = state.players[state.currentPlayer - 1];
+    renderBoard(els.myBoard, player.board, true, player.ships);
+    renderFleet();
+
+    if (state.mode === 'pvp' && state.currentPlayer === 1) {
+      showSwitchModal(2);
+    } else {
+      startGame();
+    }
+  }
+
+  function showSwitchModal(nextPlayer) {
+    els.switchTitle.textContent = `Spieler ${nextPlayer} ist dran`;
+    els.switchMessage.textContent = `Gerät an Spieler ${nextPlayer} übergeben — Schiffe platzieren.`;
+    els.continueBtn.onclick = () => {
+      hide(els.switchModal);
+      state.currentPlayer = nextPlayer;
+      state.placement.placedShips = [];
+      state.placement.draggedShipIndex = null;
+      state.placement.draggedShipLen = null;
+      state.placement.draggedShipName = null;
+      state.placement.orientation = 'horizontal';
+      state.placement.previewCells = [];
+      state.placement.validDropTarget = null;
+
+      els.placementText.textContent = `Spieler ${nextPlayer}: Schiffe platzieren`;
+      els.placementDot.classList.toggle('active', nextPlayer === 1);
+      els.placementText.classList.toggle('active', nextPlayer === 1);
+      els.myBoardLabel.textContent = `Spieler ${nextPlayer}`;
+
+      state.players[1].board = createEmptyBoard(state.size);
+      state.players[1].ships = [];
+      renderBoard(els.myBoard, state.players[1].board, true, []);
+      renderFleet();
+      updatePlacementStatus();
+    };
+    show(els.switchModal);
+  }
+
+  function startGame() {
+    state.phase = 'game';
+    state.currentPlayer = 1;
+    state.gameOver = false;
+    state.winner = null;
+
+    if (state.mode === 'ai') {
+      placeAIShips();
+    }
+
+    hide(els.placementPhase);
+    show(els.gamePhase);
+    renderGameBoards();
+    updateTurnUI();
+    updateStats();
+  }
+
+  function placeAIShips() {
+    const ai = state.players[1];
+    const size = state.size;
+    state.ships.forEach((len, idx) => {
+      let placed = false;
+      let attempts = 0;
+      while (!placed && attempts < 100) {
+        const orientation = Math.random() < 0.5 ? 'horizontal' : 'vertical';
+        const r = Math.floor(Math.random() * size);
+        const c = Math.floor(Math.random() * size);
+        if (canPlaceShip(ai.board, len, r, c, orientation)) {
+          const cells = placeShip(ai.board, len, r, c, orientation);
+          ai.ships.push({ id: idx, cells, length: len, hits: 0, sunk: false });
+          placed = true;
+        }
+        attempts++;
+      }
+    });
   }
 
   function renderGameBoards() {
     const p1 = state.players[0];
     const p2 = state.players[1];
 
-    // My board - always show ships
     renderBoard(els.myBoardGame, p1.board, true, p1.ships);
 
-    // Opponent board - hide ships unless hit/sunk
     const opponentView = p2.board.map(row => row.map(v =>
       v === CELL_STATES.SHIP ? CELL_STATES.EMPTY : v
     ));
@@ -336,196 +723,15 @@
     els.sunkStat.textContent = p1.sunk;
   }
 
-  // ===== PLACEMENT LOGIC =====
-  function handlePlacementCellClick(cell) {
-    if (state.phase !== 'placement') return;
-    const { r, c } = coordsFromCell(cell);
-    const shipLen = state.ships[state.placement.shipIndex];
-
-    // If we already have a preview, check if clicking same cell to cancel
-    if (state.placement.cells.length > 0) {
-      const first = state.placement.cells[0];
-      if (first.r === r && first.c === c) {
-        // Cancel placement
-        state.placement.cells = [];
-        state.placement.orientation = 'horizontal';
-        updatePlacementPreview();
-        updatePlacementStatus();
-        return;
-      }
-    }
-
-    // Try to place starting from this cell
-    const board = state.players[state.currentPlayer - 1].board;
-    if (canPlaceShip(board, shipLen, r, c, state.placement.orientation)) {
-      state.placement.cells = [];
-      for (let i = 0; i < shipLen; i++) {
-        const dr = state.placement.orientation === 'horizontal' ? 0 : 1;
-        const dc = state.placement.orientation === 'horizontal' ? 1 : 0;
-        state.placement.cells.push({ r: r + dr * i, c: c + dc * i });
-      }
-      updatePlacementPreview();
-      updatePlacementStatus();
-    } else {
-      updatePlacementStatus('Hier passt das Schiff nicht (Rand oder zu nah an anderes Schiff)');
-      haptic();
-    }
-  }
-
-  function updatePlacementStatus(msg) {
-    const shipLen = state.ships[state.placement.shipIndex];
-    const shipNum = state.placement.shipIndex + 1;
-    const total = state.ships.length;
-    const orientation = state.placement.orientation === 'horizontal' ? 'waagerecht' : 'senkrecht';
-    
-    if (msg) {
-      els.placementStatus.textContent = msg;
-      return;
-    }
-    
-    if (state.placement.cells.length === 0) {
-      els.placementStatus.textContent = `Schiff ${shipNum}/${total} (Länge ${shipLen}) — Tippe Startfeld, aktuell: ${orientation}`;
-    } else {
-      els.placementStatus.textContent = `Schiff ${shipNum}/${total} platziert (${orientation}) — Drehen (R) oder Bestätigen`;
-    }
-  }
-
-  function rotateShip() {
-    if (state.phase !== 'placement' || state.placement.cells.length === 0) return;
-    const shipLen = state.ships[state.placement.shipIndex];
-    const newOrientation = state.placement.orientation === 'horizontal' ? 'vertical' : 'horizontal';
-    const start = state.placement.cells[0];
-    const board = state.players[state.currentPlayer - 1].board;
-
-    if (canPlaceShip(board, shipLen, start.r, start.c, newOrientation)) {
-      state.placement.orientation = newOrientation;
-      state.placement.cells = [];
-      for (let i = 0; i < shipLen; i++) {
-        const dr = newOrientation === 'horizontal' ? 0 : 1;
-        const dc = newOrientation === 'horizontal' ? 1 : 0;
-        state.placement.cells.push({ r: start.r + dr * i, c: start.c + dc * i });
-      }
-      updatePlacementPreview();
-      updatePlacementStatus();
-      haptic();
-    } else {
-      updatePlacementStatus('Drehen nicht möglich — Schiff würde ausserhalb stehen');
-      haptic();
-    }
-  }
-
-  function confirmPlacement() {
-    if (state.phase !== 'placement') return;
-    const shipLen = state.ships[state.placement.shipIndex];
-
-    if (state.placement.cells.length !== shipLen) return;
-
-    const player = state.players[state.currentPlayer - 1];
-    const start = state.placement.cells[0];
-    const ship = placeShip(player.board, shipLen, start.r, start.c, state.placement.orientation, state.placement.shipIndex);
-    player.ships.push(ship);
-    state.placement.confirmed.push(state.placement.shipIndex);
-    state.placement.cells = [];
-    state.placement.orientation = 'horizontal';
-
-    // Re-render board with confirmed ships
-    renderBoard(els.myBoard, player.board, true, player.ships);
-    renderFleet();
-
-    // Check if all ships placed
-    if (state.placement.confirmed.length === state.ships.length) {
-      finishPlacement();
-    } else {
-      state.placement.shipIndex++;
-      updatePlacementStatus();
-      updatePlacementPreview();
-    }
-  }
-
-  function finishPlacement() {
-    const player = state.players[state.currentPlayer - 1];
-    renderBoard(els.myBoard, player.board, true, player.ships);
-    renderFleet();
-
-    if (state.mode === 'pvp' && state.currentPlayer === 1) {
-      // Switch to player 2 placement
-      showSwitchModal(2);
-    } else {
-      // Both placed (or AI) -> start game
-      startGame();
-    }
-  }
-
-  function showSwitchModal(nextPlayer) {
-    els.switchTitle.textContent = `Spieler ${nextPlayer} ist dran`;
-    els.switchMessage.textContent = `Gerät an Spieler ${nextPlayer} übergeben — Schiffe platzieren.`;
-    els.continueBtn.onclick = () => {
-      hide(els.switchModal);
-      state.currentPlayer = nextPlayer;
-      state.placement.shipIndex = 0;
-      state.placement.confirmed = [];
-      state.placement.cells = [];
-      state.placement.orientation = 'horizontal';
-      els.placementText.textContent = `Spieler ${nextPlayer}: Schiffe platzieren`;
-      els.placementDot.classList.toggle('active', nextPlayer === 1);
-      els.placementText.classList.toggle('active', nextPlayer === 1);
-      els.myBoardLabel.textContent = `Spieler ${nextPlayer}`;
-      renderBoard(els.myBoard, state.players[nextPlayer - 1].board, true, state.players[nextPlayer - 1].ships);
-      renderFleet();
-      updatePlacementPreview();
-      updatePlacementStatus();
-    };
-    show(els.switchModal);
-  }
-
-  // ===== GAME LOGIC =====
-  function startGame() {
-    state.phase = 'game';
-    state.currentPlayer = 1;
-    state.gameOver = false;
-    state.winner = null;
-
-    // AI places ships randomly
-    if (state.mode === 'ai') {
-      placeAIShips();
-    }
-
-    hide(els.placementPhase);
-    show(els.gamePhase);
-    renderGameBoards();
-    updateTurnUI();
-    updateStats();
-  }
-
-  function placeAIShips() {
-    const ai = state.players[1];
-    const size = state.size;
-    state.ships.forEach((len, idx) => {
-      let placed = false;
-      let attempts = 0;
-      while (!placed && attempts < 100) {
-        const orientation = Math.random() < 0.5 ? 'horizontal' : 'vertical';
-        const r = Math.floor(Math.random() * size);
-        const c = Math.floor(Math.random() * size);
-        if (canPlaceShip(ai.board, len, r, c, orientation)) {
-          const ship = placeShip(ai.board, len, r, c, orientation, idx);
-          ai.ships.push(ship);
-          placed = true;
-        }
-        attempts++;
-      }
-    });
-  }
-
   function handleGameCellClick(cell) {
     if (state.phase !== 'game' || state.gameOver) return;
-    if (state.mode === 'ai' && state.currentPlayer === 2) return; // AI's turn
+    if (state.mode === 'ai' && state.currentPlayer === 2) return;
 
     const boardType = cell.dataset.board;
-    if (boardType !== 'opponentBoard') return; // Can only attack opponent
+    if (boardType !== 'opponentBoard') return;
 
     const { r, c } = coordsFromCell(cell);
-    const targetPlayer = state.currentPlayer === 1 ? 1 : 0; // 1 attacks player 2 (index 1), 2 attacks player 1 (index 0)
+    const targetPlayer = state.currentPlayer === 1 ? 1 : 0;
     const target = state.players[targetPlayer];
     const val = target.board[r][c];
 
@@ -542,15 +748,13 @@
 
     let hit = false;
     let sunk = false;
-    let ship = null;
 
     if (val === CELL_STATES.SHIP) {
-      // Hit
       target.board[r][c] = CELL_STATES.HIT;
       attacker.hits++;
       hit = true;
 
-      ship = getShipAt(target.board, target.ships, r, c);
+      const ship = getShipAt(target.board, target.ships, r, c);
       if (ship) {
         ship.hits++;
         if (checkSunk(target.board, ship)) {
@@ -561,7 +765,6 @@
         }
       }
     } else {
-      // Miss
       target.board[r][c] = CELL_STATES.MISS;
       attacker.misses++;
     }
@@ -569,7 +772,6 @@
     renderGameBoards();
     updateStats();
 
-    // Check win
     if (allShipsSunk(target.ships)) {
       endGame(state.currentPlayer);
       return;
@@ -578,37 +780,32 @@
     if (hit) {
       els.turnStatus.textContent = sunk ? 'Treffer & Versenkt! Nochmal!' : 'Treffer! Nochmal!';
       els.turnStatus.classList.add('active');
-      // Same player goes again
       setTimeout(() => updateTurnUI(), 500);
     } else {
       els.turnStatus.textContent = 'Wasser! Gegner ist dran.';
       els.turnStatus.classList.remove('active');
-      // Switch turn
       state.currentPlayer = state.currentPlayer === 1 ? 2 : 1;
       updateTurnUI();
 
-      // AI turn
       if (state.mode === 'ai' && state.currentPlayer === 2) {
         setTimeout(aiTurn, 800 + Math.random() * 600);
       }
     }
   }
 
-  // ===== AI LOGIC =====
+  // ===== AI =====
   function aiTurn() {
     if (state.gameOver || state.currentPlayer !== 2) return;
 
-    const target = state.players[0]; // Human is player 0
+    const target = state.players[0];
     let r, c;
 
     if (state.aiHuntMode && state.aiLastHits.length > 0) {
-      // Target mode: shoot around last hit
       const candidates = getTargetCandidates(target.board);
       if (candidates.length > 0) {
         const pick = candidates[Math.floor(Math.random() * candidates.length)];
         r = pick.r; c = pick.c;
       } else {
-        // Fallback to hunt
         state.aiHuntMode = false;
         state.aiLastHits = [];
         const hunt = getHuntCandidates(target.board);
@@ -616,13 +813,8 @@
         r = pick.r; c = pick.c;
       }
     } else {
-      // Hunt mode: parity-based search
       const hunt = getHuntCandidates(target.board);
-      if (hunt.length === 0) {
-        // No valid moves (shouldn't happen)
-        endGame(1);
-        return;
-      }
+      if (hunt.length === 0) { endGame(1); return; }
       const pick = hunt[Math.floor(Math.random() * hunt.length)];
       r = pick.r; c = pick.c;
     }
@@ -633,7 +825,6 @@
   function getHuntCandidates(board) {
     const size = board.length;
     const candidates = [];
-    // Use parity strategy (checkerboard) for efficiency
     for (let r = 0; r < size; r++) {
       for (let c = 0; c < size; c++) {
         if (board[r][c] === CELL_STATES.EMPTY && (r + c) % 2 === 0) {
@@ -641,7 +832,6 @@
         }
       }
     }
-    // If parity exhausted, add remaining
     if (candidates.length === 0) {
       for (let r = 0; r < size; r++) {
         for (let c = 0; c < size; c++) {
@@ -656,6 +846,7 @@
     const size = board.length;
     const candidates = [];
     const directions = [[-1,0],[1,0],[0,-1],[0,1]];
+    const seen = new Set();
 
     state.aiLastHits.forEach(hit => {
       directions.forEach(([dr, dc]) => {
@@ -663,26 +854,16 @@
         let nc = hit.c + dc;
         while (nr >= 0 && nr < size && nc >= 0 && nc < size) {
           if (board[nr][nc] === CELL_STATES.EMPTY) {
-            candidates.push({ r: nr, c: nc });
-            break; // Only adjacent empty cells
+            const key = `${nr},${nc}`;
+            if (!seen.has(key)) { seen.add(key); candidates.push({ r: nr, c: nc }); }
+            break;
           }
-          if (board[nr][nc] === CELL_STATES.HIT) {
-            nr += dr; nc += dc;
-            continue;
-          }
+          if (board[nr][nc] === CELL_STATES.HIT) { nr += dr; nc += dc; continue; }
           break;
         }
       });
     });
-
-    // Deduplicate
-    const seen = new Set();
-    return candidates.filter(({r,c}) => {
-      const key = `${r},${c}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+    return candidates;
   }
 
   function endGame(winner) {
@@ -714,18 +895,38 @@
       btn.addEventListener('click', () => selectSize(btn.dataset.size));
     });
 
-    // Placement
-    els.myBoard.addEventListener('click', e => {
-      const cell = e.target.closest('.cell');
-      if (cell) handlePlacementCellClick(cell);
-    });
-    els.rotateBtn.addEventListener('click', rotateShip);
-    els.confirmPlacementBtn.addEventListener('click', confirmPlacement);
+    // Placement board drag & drop
+    els.myBoard.addEventListener('dragover', handleDragOver);
+    els.myBoard.addEventListener('drop', handleDrop);
+    els.myBoard.addEventListener('dragleave', handleDragLeave);
 
-    // Game
-    els.opponentBoard.addEventListener('click', e => {
-      const cell = e.target.closest('.cell');
-      if (cell) handleGameCellClick(cell);
+    // Touch drag & drop
+    els.fleetList.addEventListener('touchstart', handleTouchStart, { passive: false });
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
+
+    // Click on placed ship to remove (return to fleet)
+    els.myBoard.addEventListener('click', e => {
+      if (state.phase !== 'placement') return;
+      const cell = e.target.closest('.cell.ship');
+      if (!cell) return;
+
+      const { r, c } = coordsFromCell(cell);
+      for (let i = 0; i < state.placement.placedShips.length; i++) {
+        const placed = state.placement.placedShips[i];
+        if (placed.cells.some(c => c.r === r && c.c === c)) {
+          removePlacedShip(placed.index);
+          break;
+        }
+      }
+    });
+
+    // Rotate button
+    els.rotateBtn.addEventListener('click', rotateDraggedShip);
+    document.addEventListener('keydown', e => {
+      if ((e.key === 'r' || e.key === 'R') && state.phase === 'placement') {
+        rotateDraggedShip();
+      }
     });
 
     // Modals
@@ -736,11 +937,6 @@
     els.newGameBtn.addEventListener('click', () => {
       hide(els.resultModal);
       resetGame(false);
-    });
-
-    // Keyboard support for rotation
-    document.addEventListener('keydown', e => {
-      if (e.key === 'r' || e.key === 'R') rotateShip();
     });
   }
 
@@ -760,11 +956,11 @@
     state.boardSize = sizeKey;
     state.size = config.size;
     state.ships = [...config.ships];
+    state.shipNames = [...config.names];
 
     hide(els.sizeSelection);
     show(els.placementPhase);
 
-    // Init boards
     state.players[0].board = createEmptyBoard(state.size);
     state.players[1].board = createEmptyBoard(state.size);
     state.players[0].ships = [];
@@ -772,14 +968,16 @@
     state.players[0].hits = state.players[0].misses = state.players[0].sunk = 0;
     state.players[1].hits = state.players[1].misses = state.players[1].sunk = 0;
 
-    state.placement.shipIndex = 0;
-    state.placement.confirmed = [];
-    state.placement.cells = [];
+    state.placement.placedShips = [];
+    state.placement.draggedShipIndex = null;
+    state.placement.draggedShipLen = null;
+    state.placement.draggedShipName = null;
     state.placement.orientation = 'horizontal';
+    state.placement.previewCells = [];
+    state.placement.validDropTarget = null;
 
     renderBoard(els.myBoard, state.players[0].board, true, []);
     renderFleet();
-    updatePlacementPreview();
     updatePlacementStatus();
     haptic();
   }
@@ -801,7 +999,6 @@
       hide(els.gamePhase);
       els.gameStatus.textContent = 'Spielmodus wählen';
     } else {
-      // Re-init boards
       state.players[0].board = createEmptyBoard(state.size);
       state.players[1].board = createEmptyBoard(state.size);
       state.players[0].ships = [];
@@ -809,16 +1006,18 @@
       state.players[0].hits = state.players[0].misses = state.players[0].sunk = 0;
       state.players[1].hits = state.players[1].misses = state.players[1].sunk = 0;
 
-      state.placement.shipIndex = 0;
-      state.placement.confirmed = [];
-      state.placement.cells = [];
+      state.placement.placedShips = [];
+      state.placement.draggedShipIndex = null;
+      state.placement.draggedShipLen = null;
+      state.placement.draggedShipName = null;
       state.placement.orientation = 'horizontal';
+      state.placement.previewCells = [];
+      state.placement.validDropTarget = null;
 
       hide(els.gamePhase);
       show(els.placementPhase);
       renderBoard(els.myBoard, state.players[0].board, true, []);
       renderFleet();
-      updatePlacementPreview();
       els.placementText.textContent = 'Spieler 1: Schiffe platzieren';
       updatePlacementStatus();
     }
@@ -828,7 +1027,6 @@
   // ===== INIT =====
   function init() {
     initEvents();
-    // Ensure theme is applied
     const savedTheme = localStorage.getItem('pe1-theme');
     if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
   }
