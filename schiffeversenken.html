@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0099ff">
+  <meta name="description" content="Schiffe versenken — 2 Spieler oder gegen KI">
+  <title>Schiffe versenken — PE1</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="PE1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Azeret+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* ===== SCHIFFE VERSENKEN SPECIFIC STYLES ===== */
+    .game-header { padding: var(--space-4) var(--space-4) var(--space-2); }
+    .game-title-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4); }
+    .game-title { font-size: var(--text-h2); font-weight: 700; letter-spacing: var(--tracking-tight); color: var(--color-text); }
+    .mode-badge { font-size: var(--text-caption); font-weight: 600; padding: var(--space-1) var(--space-3); border-radius: var(--radius-pill); background: var(--color-accent-soft); color: var(--color-accent); text-transform: uppercase; letter-spacing: var(--tracking-wide); }
+    .mode-badge.ai { background: rgba(139,92,246,0.15); color: #a78bfa; }
+    .mode-badge.pvp { background: rgba(34,197,94,0.15); color: #4ade80; }
+
+    .game-status { min-height: 28px; font-size: var(--text-body-sm); color: var(--color-text-muted); text-align: center; }
+    .game-status.active { color: var(--color-accent); font-weight: 600; }
+    .game-status.win { color: var(--color-success); font-weight: 700; }
+    .game-status.lose { color: var(--color-error); font-weight: 700; }
+
+    /* Board Container */
+    .boards-container { display: flex; flex-direction: column; gap: var(--space-6); padding: 0 var(--space-4) var(--space-6); }
+    @media (min-width: 768px) { .boards-container { flex-direction: row; justify-content: center; align-items: flex-start; } }
+
+    .board-wrapper { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: var(--space-3); }
+    .board-label { font-size: var(--text-body-sm); font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: var(--tracking-wide); }
+    .board-label.current { color: var(--color-accent); }
+
+    .board { display: grid; gap: 2px; background: var(--color-border); border: 2px solid var(--color-border); border-radius: var(--radius-md); touch-action: manipulation; }
+    .board.small { grid-template-columns: repeat(6, 1fr); grid-template-rows: repeat(6, 1fr); }
+    .board.medium { grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); }
+    .board.large { grid-template-columns: repeat(10, 1fr); grid-template-rows: repeat(10, 1fr); }
+
+    .cell {
+      aspect-ratio: 1;
+      background: var(--color-surface);
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--duration-fast) var(--ease-out);
+      position: relative;
+    }
+    .cell:active { transform: scale(0.95); }
+    .cell:hover:not(.disabled) { background: var(--color-surface-hover); }
+    .cell.disabled { pointer-events: none; opacity: 0.5; }
+
+    /* Cell States */
+    .cell.ship { background: linear-gradient(135deg, #374151 0%, #1f2937 100%); }
+    .cell.hit { background: var(--color-error); box-shadow: inset 0 0 0 2px #fff, 0 0 10px rgba(239,68,68,0.5); }
+    .cell.hit::after { content: ''; position: absolute; width: 60%; height: 60%; background: radial-gradient(circle at 30% 30%, #fff 0%, transparent 70%); border-radius: 50%; pointer-events: none; }
+    .cell.miss { background: var(--color-surface); }
+    .cell.miss::before { content: ''; position: absolute; width: 30%; height: 30%; border: 3px solid var(--color-text-muted); border-radius: 50%; pointer-events: none; }
+    .cell.sunk { background: #7f1d1d; box-shadow: inset 0 0 0 2px #ef4444, 0 0 15px rgba(239,68,68,0.6); }
+    .cell.sunk::after { content: '💀'; font-size: 1.2em; }
+
+    /* Ship preview during placement */
+    .cell.preview { background: var(--color-accent-soft); border: 2px dashed var(--color-accent); }
+    .cell.preview.invalid { background: rgba(239,68,68,0.2); border-color: var(--color-error); }
+
+    /* Ship Legend */
+    .fleet-panel { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-4); box-shadow: var(--shadow-card); }
+    .fleet-title { font-size: var(--text-body-sm); font-weight: 700; color: var(--color-text); margin-bottom: var(--space-3); text-transform: uppercase; letter-spacing: var(--tracking-wide); }
+    .fleet-list { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: center; }
+    .fleet-ship { display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); background: var(--color-surface-hover); border: 1px solid var(--color-border); border-radius: var(--radius-pill-sm); font-size: var(--text-caption); font-family: var(--font-mono); color: var(--color-text-muted); transition: all var(--duration-fast); }
+    .fleet-ship.placed { background: rgba(34,197,94,0.1); border-color: var(--color-success); color: var(--color-success); }
+    .fleet-ship.sunk { background: rgba(239,68,68,0.1); border-color: var(--color-error); color: var(--color-error); text-decoration: line-through; }
+    .fleet-ship.current { background: var(--color-accent-soft); border-color: var(--color-accent); color: var(--color-accent); animation: pulse 1s infinite; }
+    .fleet-ship .ship-cells { display: flex; gap: 2px; }
+    .fleet-ship .ship-cell { width: 12px; height: 12px; background: var(--color-border); border-radius: 2px; }
+    .fleet-ship .ship-cell.filled { background: #374151; }
+    .fleet-ship.placed .ship-cell.filled { background: var(--color-success); }
+    .fleet-ship.sunk .ship-cell.filled { background: var(--color-error); }
+
+    /* Controls */
+    .placement-controls { display: flex; flex-wrap: wrap; gap: var(--space-3); justify-content: center; margin-top: var(--space-4); }
+    .rotate-btn { min-width: 120px; }
+
+    /* Turn Indicator */
+    .turn-indicator { display: flex; align-items: center; justify-content: center; gap: var(--space-3); padding: var(--space-3) var(--space-5); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-pill); margin: 0 auto var(--space-4); max-width: 320px; font-size: var(--text-body-sm); font-weight: 600; }
+    .turn-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--color-border); transition: all var(--duration-normal); }
+    .turn-dot.active { background: var(--color-accent); box-shadow: 0 0 8px var(--color-accent); animation: pulse 1.5s infinite; }
+    .turn-text { color: var(--color-text-muted); }
+    .turn-text.active { color: var(--color-accent); }
+
+    /* AI Thinking */
+    .ai-thinking { display: none; align-items: center; justify-content: center; gap: var(--space-2); padding: var(--space-2) var(--space-4); color: var(--color-accent); font-size: var(--text-body-sm); font-weight: 500; }
+    .ai-thinking.visible { display: flex; }
+    .ai-spinner { width: 16px; height: 16px; border: 2px solid var(--color-accent-glow); border-top-color: var(--color-accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Modal */
+    .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: var(--space-4); z-index: 1000; opacity: 0; visibility: hidden; transition: all var(--duration-normal) var(--ease-out); }
+    .modal.visible { opacity: 1; visibility: visible; }
+    .modal-content { background: var(--color-surface); border-radius: var(--radius-xl); padding: var(--space-6); max-width: 360px; width: 100%; text-align: center; transform: scale(0.9); transition: transform var(--duration-normal) var(--ease-spring); box-shadow: var(--shadow-float); }
+    .modal.visible .modal-content { transform: scale(1); }
+    .modal-icon { width: 64px; height: 64px; margin: 0 auto var(--space-4); display: flex; align-items: center; justify-content: center; background: var(--color-accent-soft); border-radius: 50%; color: var(--color-accent); }
+    .modal-icon svg { width: 32px; height: 32px; }
+    .modal-icon.win { background: rgba(34,197,94,0.15); color: var(--color-success); }
+    .modal-icon.lose { background: rgba(239,68,68,0.15); color: var(--color-error); }
+    .modal h2 { font-size: var(--text-h2); margin-bottom: var(--space-2); letter-spacing: var(--tracking-tight); }
+    .modal p { color: var(--color-text-muted); margin-bottom: var(--space-5); font-size: var(--text-body-sm); }
+    .modal .btn { width: 100%; }
+
+    /* Stats */
+    .stats-row { display: flex; justify-content: center; gap: var(--space-4); margin-top: var(--space-3); font-size: var(--text-caption); color: var(--color-text-muted); font-family: var(--font-mono); }
+    .stat { display: flex; align-items: center; gap: var(--space-1); }
+    .stat-value { font-weight: 700; color: var(--color-text); }
+
+    /* Responsive Board Sizing */
+    @media (max-width: 480px) {
+      .board.small { grid-template-columns: repeat(6, minmax(0, 36px)); grid-template-rows: repeat(6, minmax(0, 36px)); }
+      .board.medium { grid-template-columns: repeat(8, minmax(0, 28px)); grid-template-rows: repeat(8, minmax(0, 28px)); }
+      .board.large { grid-template-columns: repeat(10, minmax(0, 24px)); grid-template-rows: repeat(10, minmax(0, 24px)); }
+    }
+    @media (min-width: 481px) and (max-width: 768px) {
+      .board.small { grid-template-columns: repeat(6, minmax(0, 44px)); grid-template-rows: repeat(6, minmax(0, 44px)); }
+      .board.medium { grid-template-columns: repeat(8, minmax(0, 36px)); grid-template-rows: repeat(8, minmax(0, 36px)); }
+      .board.large { grid-template-columns: repeat(10, minmax(0, 30px)); grid-template-rows: repeat(10, minmax(0, 30px)); }
+    }
+    @media (min-width: 769px) {
+      .board.small { grid-template-columns: repeat(6, 48px); grid-template-rows: repeat(6, 48px); }
+      .board.medium { grid-template-columns: repeat(8, 40px); grid-template-rows: repeat(8, 40px); }
+      .board.large { grid-template-columns: repeat(10, 36px); grid-template-rows: repeat(10, 36px); }
+    }
+  </style>
+</head>
+<body>
+  <!-- No-flash theme script (inline IIFE) -->
+  <script>(function(){try{var t=localStorage.getItem('pe1-theme');if(t){document.documentElement.setAttribute('data-theme',t)}else if(window.matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark')}}catch(e){}})();</script>
+
+  <!-- Top Nav (Desktop) -->
+  <header class="nav-top">
+    <div class="nav-top-inner">
+      <a href="index.html" class="nav-brand" aria-label="PE1 Startseite">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+          <line x1="12" y1="22.08" x2="12" y2="12"/>
+        </svg>
+        PE1
+      </a>
+      <nav class="nav-links" aria-label="Hauptnavigation">
+        <a href="index.html" class="nav-link">Start</a>
+        <a href="compass.html" class="nav-link">Kompass</a>
+        <a href="visualizer.html" class="nav-link">Visualizer</a>
+        <a href="motion-sounds.html" class="nav-link">Motion Sounds</a>
+        <a href="wasserwaage.html" class="nav-link">Wasserwaage</a>
+        <a href="sensors.html" class="nav-link">Sensor HUD Pro</a>
+        <a href="schiffeversenken.html" class="nav-link active" aria-current="page">Schiffe versenken</a>
+        <a href="about.html" class="nav-link">Über</a>
+        <a href="contact.html" class="nav-link">Kontakt</a>
+      </nav>
+      <button class="theme-toggle" id="themeToggle" aria-label="Design-Modus wechseln" title="Theme wechseln">
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1" x2="12" y2="3"/>
+          <line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/>
+          <line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main>
+    <div class="container">
+      <header class="game-header">
+        <div class="game-title-row">
+          <h1 class="game-title">Schiffe versenken</h1>
+          <span class="mode-badge" id="modeBadge">PvP</span>
+        </div>
+        <div class="game-status active" id="gameStatus" aria-live="polite">Spielmodus wählen</div>
+      </header>
+
+      <!-- Mode Selection -->
+      <section class="section" id="modeSelection" aria-labelledby="modeTitle">
+        <h2 id="modeTitle" class="sr-only">Spielmodus</h2>
+        <div class="features">
+          <button class="feature-card card card-ring slide-up stagger-1 btn-accent btn-full touch-target-lg haptic-tap" id="modePvP" role="listitem">
+            <div class="feature-icon feature-icon--green" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            </div>
+            <h3 class="feature-title">2 Spieler (Pass & Play)</h3>
+            <p class="feature-desc">Ein Gerät, abwechselnd spielen — klassisch & fair</p>
+            <svg class="feature-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+          <button class="feature-card card card-ring slide-up stagger-2 btn-accent btn-full touch-target-lg haptic-tap" id="modeAI" role="listitem">
+            <div class="feature-icon feature-icon--purple" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2"/>
+                <path d="M8 17h8"/>
+                <path d="M12 17v4"/>
+                <path d="M8 21h8"/>
+                <path d="M12 3v4"/>
+              </svg>
+            </div>
+            <h3 class="feature-title">Gegen KI</h3>
+            <p class="feature-desc">Einzelspieler mit adaptiver Schwierigkeit</p>
+            <svg class="feature-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- Board Size Selection -->
+      <section class="section hidden" id="sizeSelection" aria-labelledby="sizeTitle">
+        <h2 id="sizeTitle" class="sr-only">Brettgröße</h2>
+        <div class="game-status" id="sizeStatus">Brettgröße wählen</div>
+        <div class="features" id="sizeOptions">
+          <button class="feature-card card card-ring slide-up stagger-1 btn-full touch-target-lg haptic-tap size-option" data-size="small" role="listitem">
+            <div class="feature-icon feature-icon--blue" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <path d="M9 9h6v6M15 9v6M9 15h6"/>
+              </svg>
+            </div>
+            <h3 class="feature-title">6×6 (Schnell)</h3>
+            <p class="feature-desc">3 Schiffe • ~3 Min • Ideal für Phone</p>
+            <svg class="feature-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+          <button class="feature-card card card-ring slide-up stagger-2 btn-full touch-target-lg haptic-tap size-option" data-size="medium" role="listitem">
+            <div class="feature-icon feature-icon--orange" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="2" width="20" height="20" rx="2"/>
+                <path d="M8 8h8v8M16 8v8M8 16h8"/>
+              </svg>
+            </div>
+            <h3 class="feature-title">8×8 (Standard)</h3>
+            <p class="feature-desc">5 Schiffe • ~8 Min • Balanciert</p>
+            <svg class="feature-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+          <button class="feature-card card card-ring slide-up stagger-3 btn-full touch-target-lg haptic-tap size-option" data-size="large" role="listitem">
+            <div class="feature-icon feature-icon--purple" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="1" y="1" width="22" height="22" rx="2"/>
+                <path d="M7 7h10v10M17 7v10M7 17h10"/>
+              </svg>
+            </div>
+            <h3 class="feature-title">10×10 (Klassisch)</h3>
+            <p class="feature-desc">5 Schiffe • ~15 Min • Volles Erlebnis</p>
+            <svg class="feature-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- Placement Phase -->
+      <section class="section hidden" id="placementPhase" aria-labelledby="placementTitle">
+        <h2 id="placementTitle" class="sr-only">Schiffe platzieren</h2>
+        <div class="turn-indicator" id="placementIndicator">
+          <span class="turn-dot active" id="placementDot"></span>
+          <span class="turn-text active" id="placementText">Spieler 1: Schiffe platzieren</span>
+        </div>
+        <div class="game-status" id="placementStatus">Tippe ein Feld, dann drehen & bestätigen</div>
+
+        <div class="boards-container">
+          <div class="board-wrapper">
+            <div class="board-label current" id="myBoardLabel">Dein Brett</div>
+            <div class="board small" id="myBoard" role="grid" aria-label="Deine Schiffe"></div>
+          </div>
+        </div>
+
+        <div class="fleet-panel" id="fleetPanel" aria-label="Flotte">
+          <div class="fleet-title">Flotte</div>
+          <div class="fleet-list" id="fleetList"></div>
+        </div>
+
+        <div class="placement-controls">
+          <button class="btn btn-primary rotate-btn haptic-tap" id="rotateBtn" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            Drehen
+          </button>
+          <button class="btn btn-accent btn-full touch-target-lg haptic-tap" id="confirmPlacementBtn" type="button" disabled>Bestätigen</button>
+        </div>
+      </section>
+
+      <!-- Game Phase -->
+      <section class="section hidden" id="gamePhase" aria-labelledby="gameTitle">
+        <h2 id="gameTitle" class="sr-only">Spiel</h2>
+        <div class="turn-indicator" id="turnIndicator">
+          <span class="turn-dot" id="myTurnDot"></span>
+          <span class="turn-text" id="myTurnText">Dein Zug</span>
+          <span class="turn-dot" id="opponentTurnDot"></span>
+          <span class="turn-text" id="opponentTurnText">Gegner</span>
+        </div>
+        <div class="ai-thinking" id="aiThinking">
+          <span class="ai-spinner"></span>
+          <span>KI denkt...</span>
+        </div>
+        <div class="game-status active" id="turnStatus" aria-live="polite">Dein Zug — tippe ein Feld</div>
+
+        <div class="boards-container">
+          <div class="board-wrapper">
+            <div class="board-label current" id="myBoardLabel2">Dein Brett</div>
+            <div class="board small" id="myBoardGame" role="grid" aria-label="Deine Schiffe"></div>
+          </div>
+          <div class="board-wrapper">
+            <div class="board-label" id="opponentBoardLabel">Gegner</div>
+            <div class="board small" id="opponentBoard" role="grid" aria-label="Gegnerisches Brett"></div>
+          </div>
+        </div>
+
+        <div class="stats-row" id="statsRow">
+          <div class="stat">Treffer: <span class="stat-value" id="hitsStat">0</span></div>
+          <div class="stat">Fehlschüsse: <span class="stat-value" id="missesStat">0</span></div>
+          <div class="stat">Versenkt: <span class="stat-value" id="sunkStat">0</span></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Bottom Nav (Mobile/Tablet) -->
+  <nav class="nav-bottom" aria-label="Hauptnavigation">
+    <a href="index.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        <polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+      <span>Start</span>
+    </a>
+    <a href="compass.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <polygon points="12 2 15 8 12 8"/>
+        <polygon points="12 22 15 16 12 16"/>
+        <polygon points="2 12 8 15 8 12"/>
+        <polygon points="22 12 16 15 16 12"/>
+      </svg>
+      <span>Kompass</span>
+    </a>
+    <a href="visualizer.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polygon points="17 3 5 3 3 9 5 15 17 15 19 9"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+        <line x1="5" y1="9" x2="17" y2="9"/>
+      </svg>
+      <span>Visualizer</span>
+    </a>
+    <a href="motion-sounds.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M11 5L6 9H2v14h20V9H13L11 5z"/>
+        <path d="M19 3l-1 1"/>
+        <path d="M21 3l-3 3 3 3"/>
+        <path d="M23 9V5l-2 2"/>
+      </svg>
+      <span>Sounds</span>
+    </a>
+    <a href="wasserwaage.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <circle cx="12" cy="12" r="6" stroke-dasharray="4 4"/>
+        <circle cx="12" cy="6" r="4" fill="currentColor" opacity="0.3"/>
+      </svg>
+      <span>Waage</span>
+    </a>
+    <a href="sensors.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+        <path d="M9 9h6v6M15 9v6M9 15h6"/>
+        <circle cx="9" cy="9" r="1" fill="currentColor"/>
+        <circle cx="15" cy="9" r="1" fill="currentColor"/>
+        <circle cx="9" cy="15" r="1" fill="currentColor"/>
+        <circle cx="15" cy="15" r="1" fill="currentColor"/>
+      </svg>
+      <span>HUD Pro</span>
+    </a>
+    <a href="schiffeversenken.html" class="nav-item active" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M2 22h20"/>
+        <path d="M6 22v-16"/>
+        <path d="M10 22v-12"/>
+        <path d="M14 22v-8"/>
+        <path d="M18 22v-4"/>
+        <circle cx="12" cy="12" r="2" fill="currentColor"/>
+      </svg>
+      <span>Schiffe</span>
+    </a>
+    <a href="about.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 16v-4"/>
+        <path d="M12 8h.01"/>
+      </svg>
+      <span>Über</span>
+    </a>
+    <a href="contact.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+        <circle cx="12" cy="10" r="3"/>
+      </svg>
+      <span>Kontakt</span>
+    </a>
+  </nav>
+
+  <footer>
+    <p>&copy; 2026 PE1. <a href="https://github.com/BavarianOne/PE1" style="color: var(--color-accent); text-decoration: none;">GitHub</a></p>
+  </footer>
+
+  <!-- Modals -->
+  <div class="modal" id="resultModal" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+    <div class="modal-content">
+      <div class="modal-icon" id="resultIcon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      </div>
+      <h2 id="resultTitle">Gewonnen!</h2>
+      <p id="resultMessage">Du hast alle gegnerischen Schiffe versenkt.</p>
+      <button class="btn btn-accent haptic-tap" id="playAgainBtn" type="button">Nochmal spielen</button>
+      <button class="btn btn-frosted haptic-tap" id="newGameBtn" type="button" style="margin-top: var(--space-3);">Neues Spiel</button>
+    </div>
+  </div>
+
+  <div class="modal" id="switchModal" role="dialog" aria-modal="true" aria-labelledby="switchTitle">
+    <div class="modal-content">
+      <div class="modal-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+      </div>
+      <h2 id="switchTitle">Spielerwechsel</h2>
+      <p id="switchMessage">Gerät an Spieler 2 übergeben.</p>
+      <button class="btn btn-accent haptic-tap" id="continueBtn" type="button">Bereit</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script src="schiffeversenken.js"></script>
+  <script>
+    // Service Worker Registration
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js', { scope: './' })
+          .then(reg => console.log('SW registered:', reg.scope))
+          .catch(err => console.error('SW registration failed:', err));
+      });
+    }
+  </script>
+</body>
+</html>
