@@ -1014,6 +1014,13 @@
       }
     });
 
+    // Game phase: click on opponent board to shoot
+    els.opponentBoard.addEventListener('click', e => {
+      if (state.phase !== 'game' || state.gameOver) return;
+      const cell = e.target.closest('.cell');
+      if (cell) handleGameCellClick(cell);
+    });
+
     // Rotate button
     els.rotateBtn.addEventListener('click', rotateDraggedShip);
     document.addEventListener('keydown', e => {
