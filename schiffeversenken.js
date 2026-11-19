@@ -183,6 +183,50 @@
     return true;
   }
 
+  function getPlacementError(board, shipLen, r, c, orientation, ignoreShipIndex = -1) {
+    const size = board.length;
+    const dr = orientation === 'horizontal' ? 0 : 1;
+    const dc = orientation === 'horizontal' ? 1 : 0;
+
+    const endR = r + dr * (shipLen - 1);
+    const endC = c + dc * (shipLen - 1);
+    if (endR >= size || endC >= size || r < 0 || c < 0) {
+      return `Schiff ragt über den Rand (${endR+1}/${endC+1} > ${size})`;
+    }
+
+    for (let i = 0; i < shipLen; i++) {
+      const cr = r + dr * i;
+      const cc = c + dc * i;
+      if (board[cr][cc] !== CELL_STATES.EMPTY) {
+        return `Feld (${cr+1},${cc+1}) bereits belegt`;
+      }
+      for (let nr = cr - 1; nr <= cr + 1; nr++) {
+        for (let nc = cc - 1; nc <= cc + 1; nc++) {
+          if (nr >= 0 && nr < size && nc >= 0 && nc < size) {
+            if (board[nr][nc] === CELL_STATES.SHIP) {
+              let belongsToIgnored = false;
+              if (ignoreShipIndex >= 0) {
+                const ignoredShip = state.placement.placedShips[ignoreShipIndex];
+                if (ignoredShip) {
+                  for (const cell of ignoredShip.cells) {
+                    if (cell.r === nr && cell.c === nc) {
+                      belongsToIgnored = true;
+                      break;
+                    }
+                  }
+                }
+              }
+              if (!belongsToIgnored) {
+                return `Zu nah an anderes Schiff (Feld ${nr+1},${nc+1}) — mind. 1 Feld Abstand`;
+              }
+            }
+          }
+        }
+      }
+    }
+    return null;
+  }
+
   function placeShip(board, shipLen, r, c, orientation) {
     const dr = orientation === 'horizontal' ? 0 : 1;
     const dc = orientation === 'horizontal' ? 1 : 0;
@@ -356,6 +400,10 @@
     const ignoreIndex = state.placement.placedShips.findIndex(s => s.index === state.placement.draggedShipIndex);
 
     const valid = canPlaceShip(board, state.placement.draggedShipLen, r, c, state.placement.orientation, ignoreIndex);
+    if (!valid) {
+      const error = getPlacementError(board, state.placement.draggedShipLen, r, c, state.placement.orientation, ignoreIndex);
+      updatePlacementStatus(error || 'Ungültige Position');
+    }
 
     state.placement.previewCells = [];
     for (let i = 0; i < state.placement.draggedShipLen; i++) {
@@ -435,6 +483,10 @@
       const board = state.players[state.currentPlayer - 1].board;
       const ignoreIndex = state.placement.placedShips.findIndex(s => s.index === state.placement.draggedShipIndex);
       const valid = canPlaceShip(board, state.placement.draggedShipLen, start.r, start.c, newOrientation, ignoreIndex);
+      if (!valid) {
+        const error = getPlacementError(board, state.placement.draggedShipLen, start.r, start.c, newOrientation, ignoreIndex);
+        updatePlacementStatus(error || 'Drehen nicht möglich');
+      }
 
       state.placement.previewCells = [];
       for (let i = 0; i < state.placement.draggedShipLen; i++) {
@@ -488,16 +540,21 @@
     const boardRect = els.myBoard.getBoundingClientRect();
     if (touch.clientX >= boardRect.left && touch.clientX <= boardRect.right &&
         touch.clientY >= boardRect.top && touch.clientY <= boardRect.bottom) {
-      const cellSize = boardRect.width / state.size;
+      // Account for 2px gap between cells: board width = size * cellSize + (size-1) * 2
+      const cellSize = (boardRect.width - (state.size - 1) * 2) / state.size;
       const relX = touch.clientX - boardRect.left;
       const relY = touch.clientY - boardRect.top;
-      const c = Math.floor(relX / cellSize);
-      const r = Math.floor(relY / cellSize);
+      const c = Math.floor(relX / (cellSize + 2));
+      const r = Math.floor(relY / (cellSize + 2));
 
       if (r >= 0 && r < state.size && c >= 0 && c < state.size) {
         const board = state.players[state.currentPlayer - 1].board;
         const ignoreIndex = state.placement.placedShips.findIndex(s => s.index === touchShipIndex);
         const valid = canPlaceShip(board, state.placement.draggedShipLen, r, c, state.placement.orientation, ignoreIndex);
+        if (!valid) {
+          const error = getPlacementError(board, state.placement.draggedShipLen, r, c, state.placement.orientation, ignoreIndex);
+          updatePlacementStatus(error || 'Ungültige Position');
+        }
 
         state.placement.previewCells = [];
         for (let i = 0; i < state.placement.draggedShipLen; i++) {
@@ -590,7 +647,7 @@
   // ===== PLACEMENT STATUS =====
   function updatePlacementStatus(msg) {
     if (msg) {
-      els.placementStatus.textContent = msg;
+      els.placementStatus.innerHTML = msg;
       return;
     }
 
