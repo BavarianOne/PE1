@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0099ff">
+  <meta name="description" content="PE1 - Digitale Wasserwaage mit Handy-Sensoren">
+  <title>Wasserwaage — PE1</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="PE1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Azeret+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    :root {
+      --level-bg: #000000;
+      --level-surface: rgba(255, 255, 255, 0.04);
+      --level-border: rgba(255, 255, 255, 0.08);
+      --level-accent: #0099ff;
+      --level-accent-glow: rgba(0, 153, 255, 0.3);
+      --level-green: #22c55e;
+      --level-green-glow: rgba(34, 197, 94, 0.3);
+      --level-amber: #f59e0b;
+      --level-red: #ef4444;
+      --level-text: #ffffff;
+      --level-muted: #888;
+      --level-dim: #555;
+    }
+
+    [data-theme="light"] {
+      --level-bg: #f8fafc;
+      --level-surface: rgba(0, 0, 0, 0.03);
+      --level-border: rgba(0, 0, 0, 0.1);
+      --level-text: #0f172a;
+      --level-muted: #64748b;
+      --level-dim: #94a3b8;
+    }
+
+    body.level-page {
+      background: var(--level-bg);
+      color: var(--level-text);
+      min-height: 100dvh;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    .level-container {
+      width: 100%;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-4);
+      padding-bottom: calc(var(--space-6) + var(--safe-bottom));
+    }
+
+    .level-bubble {
+      position: relative;
+      width: min(90vw, 360px);
+      height: min(90vw, 360px);
+      border-radius: 50%;
+      background: radial-gradient(circle at 50% 50%, var(--level-surface) 0%, var(--level-bg) 70%);
+      border: 3px solid var(--level-border);
+      box-shadow:
+        0 0 0 1px var(--level-border),
+        0 0 40px rgba(0, 0, 0, 0.4),
+        inset 0 0 60px rgba(0, 0, 0, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    [data-theme="light"] .level-bubble {
+      background: radial-gradient(circle at 50% 50%, #ffffff 0%, var(--level-bg) 70%);
+      box-shadow:
+        0 0 0 1px var(--level-border),
+        0 0 40px rgba(0, 0, 0, 0.1),
+        inset 0 0 60px rgba(0, 0, 0, 0.05);
+    }
+
+    .bubble-ring {
+      position: absolute;
+      width: 80%;
+      height: 80%;
+      border: 1px dashed var(--level-dim);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .bubble-ring-inner {
+      position: absolute;
+      width: 50%;
+      height: 50%;
+      border: 1px dashed var(--level-dim);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .bubble-crosshair {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .bubble-crosshair::before,
+    .bubble-crosshair::after {
+      content: '';
+      position: absolute;
+      background: var(--level-border);
+    }
+    .bubble-crosshair::before {
+      width: 1px;
+      height: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    .bubble-crosshair::after {
+      width: 100%;
+      height: 1px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    .bubble {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, var(--level-accent), var(--level-accent) 40%, #005aa3 100%);
+      box-shadow:
+        0 0 20px var(--level-accent-glow),
+        0 0 40px var(--level-accent-glow),
+        inset 0 -4px 8px rgba(0, 0, 0, 0.3);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      transform: translate(-50%, -50%);
+      transition: transform 0.05s linear, box-shadow 0.1s, background 0.2s;
+      pointer-events: none;
+      will-change: transform;
+    }
+
+    .bubble.centered {
+      background: radial-gradient(circle at 30% 30%, var(--level-green), var(--level-green) 40%, #15803d 100%);
+      box-shadow:
+        0 0 20px var(--level-green-glow),
+        0 0 40px var(--level-green-glow),
+        inset 0 -4px 8px rgba(0, 0, 0, 0.3);
+      border-color: rgba(34, 197, 94, 0.5);
+    }
+
+    .bubble-trail {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .trail-dot {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--level-accent);
+      opacity: 0;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      transition: opacity 0.3s, transform 0.05s linear;
+    }
+
+    .level-info {
+      margin-top: var(--space-6);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-3);
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .angle-display {
+      display: flex;
+      gap: var(--space-6);
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .angle-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-1);
+      min-width: 100px;
+      padding: var(--space-3) var(--space-4);
+      background: var(--level-surface);
+      border: 1px solid var(--level-border);
+      border-radius: var(--radius-lg);
+      backdrop-filter: blur(8px);
+    }
+
+    .angle-label {
+      font-size: var(--text-caption);
+      color: var(--level-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-weight: 500;
+    }
+
+    .angle-value {
+      font-family: var(--font-mono);
+      font-size: var(--text-h2);
+      font-weight: 600;
+      color: var(--level-text);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .angle-value.level {
+      color: var(--level-green);
+    }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-4);
+      flex-wrap: wrap;
+      padding: var(--space-3) var(--space-4);
+      background: var(--level-surface);
+      border: 1px solid var(--level-border);
+      border-radius: var(--radius-pill);
+      font-size: var(--text-body-sm);
+      font-family: var(--font-mono);
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--level-dim);
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+    .status-dot.active { background: var(--level-green); box-shadow: 0 0 8px var(--level-green); }
+    .status-dot.waiting { background: var(--level-amber); box-shadow: 0 0 8px var(--level-amber); }
+
+    .calibrate-btn {
+      margin-top: var(--space-4);
+      padding: var(--space-3) var(--space-6);
+      background: transparent;
+      border: 1px solid var(--level-accent);
+      color: var(--level-accent);
+      font-family: var(--font-mono);
+      font-size: var(--text-body-sm);
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+      min-height: var(--touch-target);
+      min-width: var(--touch-target-lg);
+      transition: all var(--duration-fast) var(--ease-out);
+      box-shadow: 0 0 10px rgba(0, 153, 255, 0.1);
+    }
+    .calibrate-btn:hover:not(:disabled) {
+      background: var(--level-accent);
+      color: var(--level-bg);
+      box-shadow: 0 0 20px var(--level-accent-glow);
+    }
+    .calibrate-btn:active:not(:disabled) { transform: scale(0.98); }
+    .calibrate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .calibrate-btn.calibrating {
+      border-color: var(--level-amber);
+      color: var(--level-amber);
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.1);
+    }
+
+    .permission-panel {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-5);
+      z-index: 100;
+      padding: var(--space-6);
+      text-align: center;
+    }
+    .permission-panel.hidden { display: none; }
+
+    [data-theme="light"] .permission-panel { background: rgba(248, 250, 252, 0.98); }
+
+    .permission-text {
+      max-width: 320px;
+      font-size: var(--text-body);
+      color: var(--level-muted);
+      line-height: 1.6;
+    }
+
+    .permission-btn {
+      padding: var(--space-3) var(--space-8);
+      background: var(--level-accent);
+      border: none;
+      color: var(--level-bg);
+      font-family: var(--font-mono);
+      font-size: var(--text-body-sm);
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+      min-height: var(--touch-target);
+      min-width: var(--touch-target-lg);
+      transition: all var(--duration-fast);
+    }
+    .permission-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 20px var(--level-accent-glow); }
+    .permission-btn:active:not(:disabled) { transform: translateY(0); }
+    .permission-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .nav-back {
+      position: fixed;
+      top: var(--space-4);
+      left: var(--space-4);
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      color: var(--level-muted);
+      text-decoration: none;
+      font-size: var(--text-caption);
+      letter-spacing: 0.05em;
+      padding: var(--space-2) var(--space-3);
+      border-radius: var(--radius-pill-sm);
+      transition: all var(--duration-fast);
+      z-index: 50;
+    }
+    .nav-back:hover { color: var(--level-accent); background: rgba(0, 153, 255, 0.1); }
+    .nav-back svg { width: 18px; height: 18px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .bubble { transition: none; }
+      .trail-dot { transition: none; }
+      .calibrate-btn { transition: none; }
+      .status-dot { transition: none; }
+    }
+
+    @media (max-width: 480px) {
+      .angle-display { gap: var(--space-3); }
+      .angle-item { min-width: 80px; padding: var(--space-2) var(--space-3); }
+      .angle-value { font-size: var(--text-h3); }
+    }
+  </style>
+</head>
+<body class="level-page">
+  <!-- Top Nav Back Link -->
+  <a href="index.html" class="nav-back" aria-label="Zurück zur Startseite">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M19 12H5M12 19l-7-7 7-7"/>
+    </svg>
+    Start
+  </a>
+
+  <!-- Permission Panel (iOS) -->
+  <div id="permissionPanel" class="permission-panel" role="dialog" aria-modal="true" aria-labelledby="permTitle">
+    <h1 id="permTitle" style="font-size: var(--text-h3); color: var(--level-accent); letter-spacing: 0.1em; text-transform: uppercase; margin: 0;">Berechtigung nötig</h1>
+    <p id="permissionText" class="permission-text">Für die Wasserwaage wird Zugriff auf die Bewegungssensoren (Beschleunigungssensor) benötigt. Bitte erlaube den Zugriff.</p>
+    <button id="permissionBtn" class="permission-btn" type="button">ZUGRIFF ERLAUBEN</button>
+  </div>
+
+  <!-- Main Content -->
+  <main class="level-container" role="main">
+    <!-- Bubble Level Visual -->
+    <div class="level-bubble" aria-live="polite" aria-label="Digitale Wasserwaage">
+      <div class="bubble-ring" aria-hidden="true"></div>
+      <div class="bubble-ring-inner" aria-hidden="true"></div>
+      <div class="bubble-crosshair" aria-hidden="true"></div>
+      <div class="bubble-trail" id="bubbleTrail" aria-hidden="true"></div>
+      <div class="bubble" id="bubble" role="img" aria-label="Luftblase der Wasserwaage"></div>
+    </div>
+
+    <!-- Angle Display -->
+    <div class="level-info">
+      <div class="angle-display">
+        <div class="angle-item">
+          <span class="angle-label">Neigung X (Roll)</span>
+          <span class="angle-value" id="valRoll">0.0°</span>
+        </div>
+        <div class="angle-item">
+          <span class="angle-label">Neigung Y (Pitch)</span>
+          <span class="angle-value" id="valPitch">0.0°</span>
+        </div>
+      </div>
+
+      <div class="status-bar">
+        <div class="status-indicator">
+          <span class="status-dot waiting" id="dotSensor"></span>
+          <span>Sensor</span>
+        </div>
+        <div class="status-indicator">
+          <span class="status-dot" id="dotCalibrated"></span>
+          <span id="txtCalibrated">Nicht kalibriert</span>
+        </div>
+        <div class="status-indicator">
+          <span id="valPrecision" style="font-variant-numeric: tabular-nums;">±0.0°</span>
+        </div>
+      </div>
+
+      <button id="calibrateBtn" class="calibrate-btn" type="button" aria-label="Aktuelle Position als Nullpunkt kalibrieren">KALIBRIEREN</button>
+    </div>
+  </main>
+
+  <script>
+    // ============ STATE ============
+    let calibrationOffset = { roll: 0, pitch: 0 };
+    let isCalibrated = false;
+    let motionGranted = false;
+    let orientationGranted = false;
+    let lastUpdate = performance.now();
+    let trailDots = [];
+    const MAX_TRAIL = 20;
+    const LEVEL_THRESHOLD = 1.0; // degrees
+
+    const bubble = document.getElementById('bubble');
+    const bubbleTrail = document.getElementById('bubbleTrail');
+    const valRoll = document.getElementById('valRoll');
+    const valPitch = document.getElementById('valPitch');
+    const dotSensor = document.getElementById('dotSensor');
+    const dotCalibrated = document.getElementById('dotCalibrated');
+    const txtCalibrated = document.getElementById('txtCalibrated');
+    const valPrecision = document.getElementById('valPrecision');
+    const calibrateBtn = document.getElementById('calibrateBtn');
+    const permissionPanel = document.getElementById('permissionPanel');
+    const permissionBtn = document.getElementById('permissionBtn');
+    const permissionText = document.getElementById('permissionText');
+
+    const bubbleSize = 28;
+    const maxRadius = 140; // pixels from center (80% of 360/2 = 144)
+
+    // ============ HELPERS ============
+    function fmt(num, decimals = 1) {
+      return (decimals === 0 ? Math.round(num) : num.toFixed(decimals));
+    }
+
+    function clamp(v, min, max) {
+      return Math.max(min, Math.min(max, v));
+    }
+
+    // ============ BUBBLE POSITION ============
+    function updateBubble(roll, pitch) {
+      // Convert degrees to pixel offset
+      // roll = rotation around X axis (tilt left/right) -> moves bubble horizontally
+      // pitch = rotation around Y axis (tilt forward/back) -> moves bubble vertically
+      const scale = maxRadius / 45; // 45° = full radius
+      const x = clamp(roll * scale, -maxRadius, maxRadius);
+      const y = clamp(pitch * scale, -maxRadius, maxRadius);
+
+      bubble.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+
+      // Check if centered (level)
+      const isLevel = Math.abs(roll) < LEVEL_THRESHOLD && Math.abs(pitch) < LEVEL_THRESHOLD;
+      bubble.classList.toggle('centered', isLevel);
+
+      // Update trail
+      addTrailDot(x, y, isLevel);
+    }
+
+    function addTrailDot(x, y, isLevel) {
+      const dot = document.createElement('div');
+      dot.className = 'trail-dot';
+      dot.style.left = `calc(50% + ${x}px)`;
+      dot.style.top = `calc(50% + ${y}px)`;
+      dot.style.background = isLevel ? 'var(--level-green)' : 'var(--level-accent)';
+      dot.style.opacity = '0.6';
+
+      bubbleTrail.appendChild(dot);
+      trailDots.push(dot);
+
+      // Fade out old dots
+      if (trailDots.length > MAX_TRAIL) {
+        const old = trailDots.shift();
+        old.style.opacity = '0';
+        setTimeout(() => old.remove(), 300);
+      }
+
+      // Force reflow then show
+      requestAnimationFrame(() => {
+        dot.style.opacity = isLevel ? '0.8' : '0.4';
+      });
+    }
+
+    // ============ CALIBRATION ============
+    function loadCalibration() {
+      try {
+        const saved = localStorage.getItem('wasserwaage_calibration');
+        if (saved) {
+          calibrationOffset = JSON.parse(saved);
+          isCalibrated = true;
+          updateCalibratedUI();
+        }
+      } catch (e) {
+        console.warn('Calibration load failed:', e);
+      }
+    }
+
+    function saveCalibration() {
+      try {
+        localStorage.setItem('wasserwaage_calibration', JSON.stringify(calibrationOffset));
+      } catch (e) {
+        console.warn('Calibration save failed:', e);
+      }
+    }
+
+    function updateCalibratedUI() {
+      dotCalibrated.classList.toggle('active', isCalibrated);
+      dotCalibrated.classList.toggle('waiting', !isCalibrated);
+      txtCalibrated.textContent = isCalibrated ? 'Kalibriert' : 'Nicht kalibriert';
+      calibrateBtn.textContent = isCalibrated ? 'NEU KALIBRIEREN' : 'KALIBRIEREN';
+    }
+
+    function doCalibrate(currentRoll, currentPitch) {
+      calibrateBtn.disabled = true;
+      calibrateBtn.classList.add('calibrating');
+      calibrateBtn.textContent = 'KALIBRIERE...';
+
+      // Calibrate to current position (make current position = 0,0)
+      calibrationOffset.roll = currentRoll;
+      calibrationOffset.pitch = currentPitch;
+      isCalibrated = true;
+      saveCalibration();
+      updateCalibratedUI();
+
+      // Clear trail on calibration
+      trailDots.forEach(d => d.remove());
+      trailDots = [];
+
+      setTimeout(() => {
+        calibrateBtn.disabled = false;
+        calibrateBtn.classList.remove('calibrating');
+      }, 500);
+    }
+
+    // ============ SENSOR HANDLING ============
+    function handleMotion(e) {
+      const now = performance.now();
+      const interval = now - lastUpdate;
+      lastUpdate = now;
+
+      // Use accelerationIncludingGravity (gravity vector in device coordinates)
+      const acc = e.accelerationIncludingGravity;
+      if (!acc) return;
+
+      const x = acc.x || 0;
+      const y = acc.y || 0;
+      const z = acc.z || 0;
+
+      // Calculate tilt angles from gravity vector
+      // roll (rotation around X): tilt left/right -> atan2(y, z)
+      // pitch (rotation around Y): tilt forward/back -> atan2(-x, z)
+      const rawRoll = Math.atan2(y, z) * 180 / Math.PI;
+      const rawPitch = Math.atan2(-x, z) * 180 / Math.PI;
+
+      // Apply calibration offset
+      const roll = rawRoll - calibrationOffset.roll;
+      const pitch = rawPitch - calibrationOffset.pitch;
+
+      // Update displays
+      valRoll.textContent = fmt(roll) + '°';
+      valPitch.textContent = fmt(pitch) + '°';
+      valPrecision.textContent = `±${fmt(interval)}ms`;
+
+      // Update bubble
+      updateBubble(roll, pitch);
+
+      // Sensor active indicator
+      dotSensor.classList.add('active');
+      dotSensor.classList.remove('waiting');
+    }
+
+    function handleOrientation(e) {
+      // DeviceOrientation gives us alpha/beta/gamma as backup
+      // beta = front/back tilt (-180 to 180) -> pitch
+      // gamma = left/right tilt (-90 to 90) -> roll
+      // We use this only if devicemotion isn't available
+    }
+
+    // ============ PERMISSIONS ============
+    async function requestPermissions() {
+      // iOS DeviceMotion permission
+      if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        try {
+          permissionBtn.disabled = true;
+          permissionBtn.textContent = 'ANFRAGE...';
+          const response = await DeviceMotionEvent.requestPermission();
+          motionGranted = response === 'granted';
+          if (!motionGranted) {
+            permissionText.textContent = 'Bewegungssensor-Zugriff verweigert. Die Wasserwaage funktioniert nicht ohne Sensorzugriff.';
+            permissionBtn.disabled = false;
+            permissionBtn.textContent = 'ERNEUT VERSUCHEN';
+            return;
+          }
+        } catch (err) {
+          console.error('DeviceMotion permission error:', err);
+          motionGranted = false;
+        }
+      } else {
+        motionGranted = true; // Non-iOS doesn't need permission
+      }
+
+      // iOS DeviceOrientation permission (optional, for backup)
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+          const response = await DeviceOrientationEvent.requestPermission();
+          orientationGranted = response === 'granted';
+        } catch (err) {
+          orientationGranted = false;
+        }
+      } else {
+        orientationGranted = true;
+      }
+
+      if (motionGranted) {
+        permissionPanel.classList.add('hidden');
+        initSensors();
+      } else {
+        permissionText.textContent = 'Zugriff verweigert. Bitte in den Browser-Einstellungen erlauben und Seite neu laden.';
+        permissionBtn.disabled = false;
+        permissionBtn.textContent = 'SEITE NEU LADEN';
+        permissionBtn.onclick = () => location.reload();
+      }
+    }
+
+    function initSensors() {
+      // Devicemotion - primary sensor for level
+      window.addEventListener('devicemotion', handleMotion, { passive: true });
+
+      // DeviceOrientation - fallback
+      window.addEventListener('deviceorientation', handleOrientation, { passive: true });
+
+      // Update sensor status after first reading
+      setTimeout(() => {
+        dotSensor.classList.add('active');
+        dotSensor.classList.remove('waiting');
+      }, 500);
+    }
+
+    // ============ INIT ============
+    function init() {
+      loadCalibration();
+      updateCalibratedUI();
+
+      // Check if we need permission (iOS)
+      const needsPermission = typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function';
+      if (needsPermission) {
+        permissionPanel.classList.remove('hidden');
+      } else {
+        permissionPanel.classList.add('hidden');
+        initSensors();
+      }
+
+      // Calibrate button
+      calibrateBtn.addEventListener('click', () => {
+        // Get current raw values from last event
+        // We'll use the displayed values + calibration offset
+        const currentRoll = parseFloat(valRoll.textContent) + calibrationOffset.roll;
+        const currentPitch = parseFloat(valPitch.textContent) + calibrationOffset.pitch;
+        doCalibrate(currentRoll, currentPitch);
+      });
+
+      // Permission button
+      permissionBtn.addEventListener('click', requestPermissions);
+
+      // Prevent pull-to-refresh and overscroll
+      document.body.addEventListener('touchmove', e => {
+        if (e.scale !== 1) e.preventDefault();
+      }, { passive: false });
+    }
+
+    // Start
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  </script>
+</body>
+</html>
